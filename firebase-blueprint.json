@@ -1,0 +1,139 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Usuários do sistema com roles admin, auditor_consultor ou empresa",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 150 },
+        "email": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["admin", "auditor", "empresa"] },
+        "jobTitle": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "Empresas e clientes cadastrados",
+      "type": "object",
+      "properties": {
+        "corporateName": { "type": "string", "maxLength": 200 },
+        "cnpj": { "type": "string", "maxLength": 30 },
+        "address": { "type": "string", "maxLength": 300 },
+        "norm": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["corporateName", "cnpj"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Dados cadastrais e índice de qualificação de fornecedor",
+      "type": "object",
+      "properties": {
+        "tradeName": { "type": "string", "maxLength": 200 },
+        "corporateName": { "type": "string", "maxLength": 200 },
+        "cnpj": { "type": "string", "maxLength": 30 },
+        "contactEmail": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "category": { "type": "string", "maxLength": 100 },
+        "iqfScore": { "type": "number" },
+        "status": { "type": "string", "enum": ["Em Avaliação", "Qualificado", "Homologado", "Bloqueado"] },
+        "primaryNorm": { "type": "string", "maxLength": 50 },
+        "city": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 10 },
+        "country": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 30 }
+      },
+      "required": ["tradeName", "cnpj", "status", "primaryNorm"]
+    },
+    "Audit": {
+      "title": "Audit",
+      "description": "Registro completo de auditoria com fluxo sequencial e rastreável",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "maxLength": 50 },
+        "supplierOrClientId": { "type": "string", "maxLength": 100 },
+        "clientName": { "type": "string", "maxLength": 200 },
+        "clientAddress": { "type": "string", "maxLength": 300 },
+        "auditType": { "type": "string", "maxLength": 100 },
+        "norm": { "type": "string", "maxLength": 50 },
+        "scope": { "type": "string", "maxLength": 500 },
+        "leadAuditor": { "type": "string", "maxLength": 150 },
+        "auditTeam": { "type": "string", "maxLength": 200 },
+        "technicalManager": { "type": "string", "maxLength": 150 },
+        "startDate": { "type": "string", "maxLength": 30 },
+        "endDate": { "type": "string", "maxLength": 30 },
+        "validityDate": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "enum": ["Planejada", "Planejamento e Equipe", "Execução", "Validação", "Revisão Técnica", "Certificada", "Concluída", "Em Andamento"] },
+        "conformityScore": { "type": "number" },
+        "nonConformitiesCount": { "type": "number" }
+      },
+      "required": ["code", "clientName", "norm", "scope", "clientAddress", "technicalManager", "status"]
+    },
+    "Certificate": {
+      "title": "Certificate",
+      "description": "Certificado oficial emitido com QR Code e assinatura dinâmica do Gerente Técnico",
+      "type": "object",
+      "properties": {
+        "certificateNumber": { "type": "string", "maxLength": 50 },
+        "recipientName": { "type": "string", "maxLength": 200 },
+        "clientAddress": { "type": "string", "maxLength": 300 },
+        "cnpjOrCpf": { "type": "string", "maxLength": 50 },
+        "norm": { "type": "string", "maxLength": 50 },
+        "scope": { "type": "string", "maxLength": 500 },
+        "issueDate": { "type": "string", "maxLength": 30 },
+        "expiryDate": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "enum": ["Aprovado", "Pendente", "Vencido", "Revogado"] },
+        "qrCodeUrl": { "type": "string", "maxLength": 300 },
+        "leadAuditor": { "type": "string", "maxLength": 150 },
+        "technicalManager": { "type": "string", "maxLength": 150 },
+        "technicalManagerSignature": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["certificateNumber", "recipientName", "clientAddress", "norm", "scope", "technicalManager", "status"]
+    },
+    "Partner": {
+      "title": "Partner",
+      "description": "Empresas colaboradoras, parceiros estratégicos e corporações homologadas",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 150 },
+        "tradeName": { "type": "string", "maxLength": 200 },
+        "logoUrl": { "type": "string", "maxLength": 500 },
+        "category": { "type": "string", "maxLength": 100 },
+        "norm": { "type": "string", "maxLength": 100 },
+        "websiteUrl": { "type": "string", "maxLength": 300 },
+        "partnershipType": { "type": "string", "enum": ["Cliente Homologado", "Parceiro Estratégico", "Empresa Certificada", "Aliança Tecnológica"] },
+        "description": { "type": "string", "maxLength": 500 },
+        "order": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 30 }
+      },
+      "required": ["name", "category", "norm", "partnershipType"]
+    }
+  },
+  "firestore": {
+    "/partners/{partnerId}": {
+      "schema": { "$ref": "#/entities/Partner" },
+      "description": "Empresas colaboradoras e parceiros homologados"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Contas de usuários"
+    },
+    "/companies/{companyId}": {
+      "schema": { "$ref": "#/entities/Company" },
+      "description": "Empresas cadastradas"
+    },
+    "/suppliers/{supplierId}": {
+      "schema": { "$ref": "#/entities/Supplier" },
+      "description": "Lista de fornecedores cadastrados"
+    },
+    "/audits/{auditId}": {
+      "schema": { "$ref": "#/entities/Audit" },
+      "description": "Registros de ciclos de auditoria"
+    },
+    "/certificates/{certificateId}": {
+      "schema": { "$ref": "#/entities/Certificate" },
+      "description": "Certificados emitidos"
+    }
+  }
+}

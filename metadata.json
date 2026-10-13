@@ -1,0 +1,6 @@
+{
+  "name": "Nexus Veritas Certification",
+  "description": "Plataforma completa de certificação, auditorias, gestão de conformidade e qualificação de fornecedores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

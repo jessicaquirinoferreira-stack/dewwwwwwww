@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions for auth & roles
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'admin@x.com' ||
+        request.auth.uid == 'admin-01'
+      );
+    }
+
+    // Global default-deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Partners & Public Landing content
+    match /partners/{partnerId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Companies / Clients collection
+    match /companies/{companyId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Suppliers collection
+    match /suppliers/{supplierId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Audits collection
+    match /audits/{auditId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Certificates collection (publicly readable for verification, writable by authenticated users)
+    match /certificates/{certificateId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Action Plans (CAPA)
+    match /action_plans/{planId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Indicators
+    match /indicators/{indicatorId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Documents / Checklists
+    match /documents/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Professionals Network
+    match /professionals/{profId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Courses & Academy
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Support Tickets
+    match /support_tickets/{ticketId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Technical Managers (for signatures)
+    match /technical_managers/{managerId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Test connection
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

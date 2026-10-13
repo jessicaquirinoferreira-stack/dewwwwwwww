@@ -1,0 +1,374 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  *, *:before, *:after {
+    box-sizing: inherit;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #0A0E17;
+    color: #F8FAFC;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  html.light body {
+    background-color: #F8FAFC;
+    color: #0F172A;
+  }
+
+  html.dark body {
+    background-color: #0A0E17;
+    color: #F8FAFC;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+    letter-spacing: -0.025em;
+  }
+
+  .font-brand {
+    font-family: 'Cinzel', Georgia, serif;
+    letter-spacing: 0.12em;
+  }
+}
+
+/* Executive Precision Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.25);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(249, 115, 22, 0.7);
+}
+
+/* Text Blur Reveal Animation */
+@keyframes blur-in-reveal {
+  0% {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.animate-blur-reveal {
+  animation: blur-in-reveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Animated Mesh Gradient for Hero Background */
+@keyframes mesh-drift {
+  0% {
+    background-position: 0% 50%, 100% 50%, 50% 100%;
+  }
+  50% {
+    background-position: 100% 50%, 0% 100%, 100% 0%;
+  }
+  100% {
+    background-position: 0% 50%, 100% 50%, 50% 100%;
+  }
+}
+
+.bg-mesh-gradient {
+  background-size: 200% 200%, 200% 200%, 200% 200%;
+  animation: mesh-drift 18s ease infinite;
+}
+
+/* Card Animated Gradient Border (Laranja -> Transparente) */
+@keyframes border-glow-rotate {
+  0%, 100% {
+    border-color: rgba(249, 115, 22, 0.65);
+    box-shadow: 0 0 25px -5px rgba(249, 115, 22, 0.25);
+  }
+  50% {
+    border-color: rgba(234, 88, 12, 0.2);
+    box-shadow: 0 0 35px 2px rgba(249, 115, 22, 0.4);
+  }
+}
+
+.animate-border-glow {
+  animation: border-glow-rotate 4s ease-in-out infinite;
+}
+
+/* Subtle Floating 4-6px */
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-subtle-float {
+  animation: subtle-float 5s ease-in-out infinite;
+}
+
+/* Button Internal Glow & Elevation */
+.btn-primary-glow {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-primary-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.35) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.btn-primary-glow:hover::after {
+  opacity: 1;
+}
+
+/* Executive Status Pulse */
+@keyframes pulse-corp {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.92); }
+}
+
+.animate-pulse-corp {
+  animation: pulse-corp 2s infinite ease-in-out;
+}
+
+/* High-Tech Shimmer and Scanline */
+@keyframes tech-scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-tech-scan {
+  animation: tech-scan 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Float Animation for Technological Cards & Nodes */
+@keyframes tech-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-tech-float {
+  animation: tech-float 5s ease-in-out infinite;
+}
+
+@keyframes tech-float-reverse {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(8px); }
+}
+
+.animate-tech-float-reverse {
+  animation: tech-float-reverse 6s ease-in-out infinite;
+}
+
+/* Glowing Ambient Pulse */
+@keyframes ambient-glow {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.08); }
+}
+
+.animate-ambient-glow {
+  animation: ambient-glow 6s ease-in-out infinite;
+}
+
+/* Technological Skills Marquee Movement */
+@keyframes tech-marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-tech-marquee {
+  display: flex;
+  width: max-content;
+  animation: tech-marquee 32s linear infinite;
+}
+
+.animate-tech-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Slow elegant marquee for mobile partners */
+@keyframes marquee-slow {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee-slow {
+  display: flex;
+  width: max-content;
+  animation: marquee-slow 40s linear infinite;
+}
+
+.animate-marquee-slow:hover {
+  animation-play-state: paused;
+}
+
+/* Cyber Radar Sweep */
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 8s linear infinite;
+}
+
+/* 3D Perspective Container */
+.perspective-1000 {
+  perspective: 1000px;
+}
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+/* Background Drifting Dot Grid */
+@keyframes grid-drift {
+  0% {
+    background-position: 0px 0px;
+  }
+  100% {
+    background-position: 80px 80px;
+  }
+}
+
+.animate-grid-drift {
+  animation: grid-drift 45s linear infinite;
+}
+
+/* Animated Data Flow Beam for Norms Section */
+@keyframes data-flow-dash {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-data-flow {
+  stroke-dasharray: 8 12;
+  animation: data-flow-dash 2.5s linear infinite;
+}
+
+/* Flow Pulse Particle along Norms Line */
+@keyframes flow-particle {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+.animate-flow-particle {
+  animation: flow-particle 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Subtle Luminous Line Under Stats */
+@keyframes stat-line-sweep {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.animate-stat-sweep {
+  animation: stat-line-sweep 3s ease-in-out infinite;
+}
+
+/* Sliding Sheen for Elite Buttons */
+@keyframes sheen-slide {
+  0% {
+    transform: translateX(-100%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-20deg);
+  }
+}
+
+.group:hover .animate-sheen-slide {
+  animation: sheen-slide 1s ease-in-out forwards;
+}
+
+/* Rotating Conic Border Beam */
+@keyframes border-beam-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-border-beam {
+  animation: border-beam-rotate 6s linear infinite;
+}
+
+/* Slow Breathing Glow for Certificate Card */
+@keyframes breath-glow {
+  0%, 100% {
+    opacity: 0.35;
+    filter: drop-shadow(0 0 20px rgba(249, 115, 22, 0.3));
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    filter: drop-shadow(0 0 40px rgba(249, 115, 22, 0.55));
+    transform: scale(1.02);
+  }
+}
+
+.animate-breath-glow {
+  animation: breath-glow 5s ease-in-out infinite;
+}
+
+/* Icon Soft Pulsation */
+@keyframes icon-pulse-soft {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+.animate-icon-pulse {
+  animation: icon-pulse-soft 3s ease-in-out infinite;
+}
