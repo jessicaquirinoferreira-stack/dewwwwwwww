@@ -14,7 +14,8 @@ import {
   Sparkles,
   AlertTriangle,
   RotateCcw,
-  CheckCircle2
+  CheckCircle2,
+  CheckSquare
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
@@ -169,10 +170,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           {[
             { id: 'fornecedores' as NavigationTab, label: 'Portal Fornecedores', icon: Building2, count: suppliers.length },
             { id: 'auditorias' as NavigationTab, label: 'Auditorias', icon: ClipboardCheck, count: audits.length },
-            { id: 'planos-de-acao' as NavigationTab, label: 'Planos de Ação', icon: CheckCircle2, count: actionPlans.length },
+            { id: 'planos-de-acao' as NavigationTab, label: 'Planos de Ação', icon: CheckSquare, count: actionPlans.length },
+            { id: 'certificados' as NavigationTab, label: 'Certificados & Selos', icon: Award, count: certificates.length },
+            { id: 'analise-tecnica-aprovacoes' as NavigationTab, label: 'Análise Técnica & Aprovações', icon: ShieldCheck },
             { id: 'agenda' as NavigationTab, label: 'Agenda 2026', icon: Calendar, count: events.length },
-            { id: 'mapa-mundial' as NavigationTab, label: 'Mapa Mundial', icon: Globe2 },
-            { id: 'rede-profissional' as NavigationTab, label: 'Rede de Auditores', icon: Users2 },
           ].map((item) => {
             const Icon = item.icon;
             return (

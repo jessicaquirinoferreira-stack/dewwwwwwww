@@ -16,7 +16,7 @@ import {
 import { useData } from '../../context/DataContext';
 import { StatCard } from '../common/StatCard';
 import { EmptyState } from '../common/EmptyState';
-import { Supplier, SupplierStatus } from '../../types';
+import { Supplier, SupplierStatus, CriticalityLevel } from '../../types';
 import { STANDARD_NORMS } from '../../data/initialData';
 
 interface SuppliersViewProps {
@@ -39,6 +39,7 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({ onOpenMap }) => {
     contactEmail: '',
     phone: '',
     category: 'Matéria-Prima & Insumos',
+    criticality: 'Média' as CriticalityLevel,
     iqfScore: 85,
     status: 'Em Avaliação' as SupplierStatus,
     primaryNorm: 'ISO 9001',
@@ -77,6 +78,7 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({ onOpenMap }) => {
       contactEmail: '',
       phone: '',
       category: 'Matéria-Prima & Insumos',
+      criticality: 'Média',
       iqfScore: 85,
       status: 'Em Avaliação',
       primaryNorm: 'ISO 9001',

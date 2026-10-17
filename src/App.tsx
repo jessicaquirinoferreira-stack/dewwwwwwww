@@ -22,8 +22,10 @@ import { NetworkView } from './components/views/NetworkView';
 import { AcademyView } from './components/views/AcademyView';
 import { MagazineView } from './components/views/MagazineView';
 import { TechnicalSupportView } from './components/views/TechnicalSupportView';
+import { TechnicalApprovalsView } from './components/views/TechnicalApprovalsView';
 import { SettingsProfileView } from './components/views/SettingsProfileView';
 import { AdminPanelModal } from './components/views/AdminPanelModal';
+import { VerifyIndexRoute } from './routes/verify.index';
 
 function AppContent() {
   const { user } = useAuth();
@@ -83,8 +85,10 @@ function AppContent() {
         return { category: 'GESTÃO', title: 'Indicadores de Desempenho' };
       case 'certificados':
         return { category: 'GESTÃO', title: 'Certificados & Acreditação' };
+      case 'analise-tecnica-aprovacoes':
+        return { category: 'GESTÃO', title: 'Análise Técnica & Aprovações' };
       case 'documentos':
-        return { category: 'GESTÃO', title: 'Documentos Personalizados' };
+        return { category: 'GESTÃO', title: 'Documentos Personalizados & SGQ' };
       case 'rede-profissional':
         return { category: 'GESTÃO', title: 'Rede Profissional de Auditores' };
       case 'revista':
@@ -103,6 +107,24 @@ function AppContent() {
         return { category: 'PRINCIPAL', title: 'Módulo Nexus Veritas' };
     }
   };
+
+  // Check if URL is /verify or contains /verify/
+  const isVerifyRoute = window.location.pathname.includes('/verify') || window.location.search.includes('verify=');
+
+  if (isVerifyRoute) {
+    return (
+      <VerifyIndexRoute
+        onBackToHome={() => {
+          window.history.replaceState({}, '', '/');
+          window.location.reload();
+        }}
+        onEnterPlatform={() => {
+          window.history.replaceState({}, '', '/');
+          window.location.reload();
+        }}
+      />
+    );
+  }
 
   // If user explicitly views Landing Page
   if (isViewingLanding) {
@@ -186,6 +208,12 @@ function AppContent() {
             <CertificatesView
               onOpenDocuments={() => setCurrentTab('documentos')}
               onOpenAudits={() => setCurrentTab('auditorias')}
+            />
+          )}
+
+          {currentTab === 'analise-tecnica-aprovacoes' && (
+            <TechnicalApprovalsView
+              onNavigateToTab={(tab) => setCurrentTab(tab as NavigationTab)}
             />
           )}
 

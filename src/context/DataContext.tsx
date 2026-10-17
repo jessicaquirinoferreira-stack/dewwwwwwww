@@ -1,20 +1,48 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   Supplier,
+  SupplierStatus,
+  SupplierStatusHistoryEntry,
+  SupplierDocumentGED,
+  SupplierRiskAssessment,
+  SupplierIQFBreakdown,
+  SupplierShareToken,
+  CriticalityLevel,
   Audit,
+  AuditType,
+  AuditStatus,
+  AuditChecklistItem,
+  AuditTechnicalApproval,
+  AuditFindingSeverity,
   ActionPlan,
+  ActionPlanStatus,
+  ActionPlan5W2H,
+  ActionPlanRootCauseIshikawa,
   MetricIndicator,
   Certificate,
+  CertificateStatus,
+  CertificateType,
   CustomDocument,
+  WorkflowDocumentStatus,
   CalendarEvent,
   ProfessionalAuditor,
   Course,
   TechnicalArticle,
   TechnicalTicket,
   LandingContent,
-  Partner
+  Partner,
+  AuditLogEntry
 } from '../types';
-import { DEFAULT_LANDING_CONTENT, SAMPLE_PROFESSIONALS, DEFAULT_PARTNERS } from '../data/initialData';
+import {
+  DEFAULT_LANDING_CONTENT,
+  SAMPLE_PROFESSIONALS,
+  DEFAULT_PARTNERS,
+  INITIAL_DEMO_SUPPLIERS,
+  INITIAL_DEMO_AUDITS,
+  INITIAL_DEMO_ACTION_PLANS,
+  INITIAL_DEMO_CERTIFICATES,
+  INITIAL_DEMO_DOCUMENTS
+} from '../data/initialData';
 import {
   collection,
   doc,
@@ -24,25 +52,49 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import {
+  calculateAuditComplianceScore,
+  calculateISO31000Risk,
+  calculateSupplierIQF,
+  validateSupplierStatusTransition
+} from '../utils/isoMath';
 
 interface DataContextType {
   // 1. Suppliers
   suppliers: Supplier[];
   addSupplier: (supplier: Omit<Supplier, 'id' | 'createdAt'>) => void;
   updateSupplier: (id: string, updated: Partial<Supplier>) => void;
-  deleteSupplier: (id: string) => void;
+  deleteSupplier: (id: string, justification?: string, decidedBy?: string) => Promise<void>;
+  changeSupplierStatus: (
+    supplierId: string,
+    newStatus: SupplierStatus,
+    justification: string,
+    decidedBy?: string
+  ) => { success: boolean; message?: string };
+  addSupplierDocumentGED: (supplierId: string, doc: Omit<SupplierDocumentGED, 'id' | 'uploadedAt'>) => void;
+  deleteSupplierDocumentGED: (supplierId: string, docId: string) => void;
+  generateSupplierShareToken: (supplierId: string, sharedWithEmail: string, role: 'fornecedor' | 'cliente' | 'consultor') => string;
+  revokeSupplierShareToken: (supplierId: string, tokenId: string) => void;
+  recalculateSupplierIQF: (supplierId: string, quality: number, delivery: number, complianceOrEsg: number, auditOrDoc?: number) => void;
+  updateSupplierRisk: (supplierId: string, risk: SupplierRiskAssessment) => void;
 
   // 2. Audits
   audits: Audit[];
   addAudit: (audit: Omit<Audit, 'id'>) => void;
   updateAudit: (id: string, updated: Partial<Audit>) => void;
   deleteAudit: (id: string) => void;
+  createActionPlanFromAuditNC: (auditId: string, item: AuditChecklistItem, responsible: string, deadline: string, priority?: 'Alta' | 'Média' | 'Baixa') => void;
+  submitAuditTechnicalApproval: (auditId: string, approval: AuditTechnicalApproval) => void;
 
   // 3. Action Plans
   actionPlans: ActionPlan[];
   addActionPlan: (plan: Omit<ActionPlan, 'id'>) => void;
   updateActionPlan: (id: string, updated: Partial<ActionPlan>) => void;
   deleteActionPlan: (id: string) => void;
+  updateActionPlan5W2H: (id: string, data: ActionPlan5W2H) => void;
+  updateActionPlanIshikawa: (id: string, data: ActionPlanRootCauseIshikawa) => void;
+  updateActionPlan5Whys: (id: string, whys: string[]) => void;
+  verifyActionPlanEffectiveness: (id: string, isEffective: boolean, notes: string, verifiedBy: string) => void;
 
   // 4. Indicators
   indicators: MetricIndicator[];
@@ -54,10 +106,12 @@ interface DataContextType {
   addCertificate: (cert: Omit<Certificate, 'id'>) => void;
   updateCertificate: (id: string, updated: Partial<Certificate>) => void;
   deleteCertificate: (id: string) => void;
+  updateCertificateLifecycle: (id: string, newStatus: CertificateStatus, justification: string, responsible: string) => void;
 
   // 6. Documents
   documents: CustomDocument[];
   addDocument: (doc: Omit<CustomDocument, 'id' | 'updatedAt'>) => void;
+  updateDocument: (id: string, updated: Partial<CustomDocument>) => void;
   deleteDocument: (id: string) => void;
 
   // 7. Schedule Events
@@ -100,6 +154,10 @@ interface DataContextType {
   deletePartner: (id: string) => Promise<void>;
   resetPartnersToDefault: () => Promise<void>;
 
+  // 15. Audit Logs
+  auditLogs: AuditLogEntry[];
+  addAuditLog: (entry: Omit<AuditLogEntry, 'id' | 'timestamp'>) => void;
+
   // Utility
   seedSampleData: () => void;
   clearAllData: () => void;
@@ -126,13 +184,27 @@ const saveStored = <T,>(key: string, data: T) => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // All initial states start zeroed (empty states) as strictly required
-  const [suppliers, setSuppliers] = useState<Supplier[]>(() => getStored('suppliers', []));
-  const [audits, setAudits] = useState<Audit[]>(() => getStored('audits', []));
-  const [actionPlans, setActionPlans] = useState<ActionPlan[]>(() => getStored('action_plans', []));
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    const s = getStored('suppliers', INITIAL_DEMO_SUPPLIERS);
+    return s && s.length > 0 ? s : INITIAL_DEMO_SUPPLIERS;
+  });
+  const [audits, setAudits] = useState<Audit[]>(() => {
+    const s = getStored('audits', INITIAL_DEMO_AUDITS);
+    return s && s.length > 0 ? s : INITIAL_DEMO_AUDITS;
+  });
+  const [actionPlans, setActionPlans] = useState<ActionPlan[]>(() => {
+    const s = getStored('action_plans', INITIAL_DEMO_ACTION_PLANS);
+    return s && s.length > 0 ? s : INITIAL_DEMO_ACTION_PLANS;
+  });
   const [indicators, setIndicators] = useState<MetricIndicator[]>(() => getStored('indicators', []));
-  const [certificates, setCertificates] = useState<Certificate[]>(() => getStored('certificates', []));
-  const [documents, setDocuments] = useState<CustomDocument[]>(() => getStored('documents', []));
+  const [certificates, setCertificates] = useState<Certificate[]>(() => {
+    const s = getStored('certificates', INITIAL_DEMO_CERTIFICATES);
+    return s && s.length > 0 ? s : INITIAL_DEMO_CERTIFICATES;
+  });
+  const [documents, setDocuments] = useState<CustomDocument[]>(() => {
+    const s = getStored('documents', INITIAL_DEMO_DOCUMENTS);
+    return s && s.length > 0 ? s : INITIAL_DEMO_DOCUMENTS;
+  });
   const [events, setEvents] = useState<CalendarEvent[]>(() => getStored('events', []));
   const [professionals, setProfessionals] = useState<ProfessionalAuditor[]>(() => getStored('professionals', SAMPLE_PROFESSIONALS));
   const [mapboxToken, setMapboxTokenState] = useState<string>(() => getStored('mapbox_token', ''));
@@ -159,6 +231,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   });
   const [partners, setPartners] = useState<Partner[]>(() => getStored('partners', DEFAULT_PARTNERS));
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(() => getStored('audit_logs', []));
 
   // Sync states to local storage
   useEffect(() => saveStored('suppliers', suppliers), [suppliers]);
@@ -176,48 +249,335 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => saveStored('tickets', tickets), [tickets]);
   useEffect(() => saveStored('landing_content', landingContent), [landingContent]);
   useEffect(() => saveStored('partners', partners), [partners]);
+  useEffect(() => saveStored('audit_logs', auditLogs), [auditLogs]);
 
-  // Synchronize Partners in real-time with Firestore database
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+  const addAuditLog = async (entry: Omit<AuditLogEntry, 'id' | 'timestamp'>) => {
+    const newLog: AuditLogEntry = {
+      ...entry,
+      id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      timestamp: new Date().toISOString(),
+    };
+    setAuditLogs((prev) => [newLog, ...prev.slice(0, 150)]);
     try {
-      const colRef = collection(db, 'partners');
-      unsubscribe = onSnapshot(
-        colRef,
-        (snapshot) => {
-          if (!snapshot.empty) {
-            const list: Partner[] = [];
-            snapshot.forEach((d) => {
-              list.push({ ...d.data(), id: d.id } as Partner);
-            });
-            list.sort((a, b) => (a.order || 0) - (b.order || 0));
-            setPartners(list);
-          } else {
-            // First run: seed Firestore with DEFAULT_PARTNERS
-            DEFAULT_PARTNERS.forEach(async (p) => {
-              try {
-                await setDoc(doc(db, 'partners', p.id), p);
-              } catch (e) {
-                console.warn('Auto-seed partner doc note:', e);
-              }
-            });
-            setPartners(DEFAULT_PARTNERS);
-          }
-        },
-        (error) => {
-          console.warn('Firestore onSnapshot partners notice:', error);
-        }
-      );
+      await setDoc(doc(db, 'audit_logs', newLog.id), newLog);
     } catch (e) {
-      console.warn('Firestore listener setup note:', e);
+      console.warn('Firestore addAuditLog note:', e);
     }
+  };
+
+  // Helper recursivo para sanitizar dados e remover campos undefined antes do envio ao Firestore
+  const cleanForFirestore = <T,>(data: T): T => {
+    if (data === null || data === undefined) return null as unknown as T;
+    if (Array.isArray(data)) {
+      return data.map((item) => cleanForFirestore(item)) as unknown as T;
+    }
+    if (typeof data === 'object') {
+      const res: Record<string, any> = {};
+      for (const [k, v] of Object.entries(data as Record<string, any>)) {
+        if (v !== undefined) {
+          res[k] = cleanForFirestore(v);
+        }
+      }
+      return res as T;
+    }
+    return data;
+  };
+
+  // Synchronize All Core Collections in Real-Time with Firestore
+  useEffect(() => {
+    const unsubs: (() => void)[] = [];
+
+    // 1. Partners
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'partners'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: Partner[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as Partner));
+              list.sort((a, b) => (a.order || 0) - (b.order || 0));
+              setPartners(list);
+            } else {
+              DEFAULT_PARTNERS.forEach(async (p) => {
+                try {
+                  await setDoc(doc(db, 'partners', p.id), cleanForFirestore(p));
+                } catch {}
+              });
+              setPartners(DEFAULT_PARTNERS);
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot partners note:', err)
+        )
+      );
+    } catch {}
+
+    // 2. Suppliers
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'suppliers'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: Supplier[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as Supplier));
+              setSuppliers(list);
+            } else {
+              INITIAL_DEMO_SUPPLIERS.forEach(async (s) => {
+                try {
+                  await setDoc(doc(db, 'suppliers', s.id), cleanForFirestore(s));
+                } catch {}
+              });
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot suppliers note:', err)
+        )
+      );
+    } catch {}
+
+    // 3. Audits
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'audits'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: Audit[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as Audit));
+              setAudits(list);
+            } else {
+              INITIAL_DEMO_AUDITS.forEach(async (a) => {
+                try {
+                  await setDoc(doc(db, 'audits', a.id), cleanForFirestore(a));
+                } catch {}
+              });
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot audits note:', err)
+        )
+      );
+    } catch {}
+
+    // 4. Certificates
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'certificates'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: Certificate[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as Certificate));
+              setCertificates(list);
+            } else {
+              INITIAL_DEMO_CERTIFICATES.forEach(async (c) => {
+                try {
+                  await setDoc(doc(db, 'certificates', c.id), cleanForFirestore(c));
+                } catch {}
+              });
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot certificates note:', err)
+        )
+      );
+    } catch {}
+
+    // 5. Action Plans
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'action_plans'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: ActionPlan[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as ActionPlan));
+              setActionPlans(list);
+            } else {
+              INITIAL_DEMO_ACTION_PLANS.forEach(async (p) => {
+                try {
+                  await setDoc(doc(db, 'action_plans', p.id), cleanForFirestore(p));
+                } catch {}
+              });
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot action_plans note:', err)
+        )
+      );
+    } catch {}
+
+    // 6. Documents SGQ
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'documents'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: CustomDocument[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as CustomDocument));
+              setDocuments(list);
+            } else {
+              INITIAL_DEMO_DOCUMENTS.forEach(async (docItem) => {
+                try {
+                  await setDoc(doc(db, 'documents', docItem.id), cleanForFirestore(docItem));
+                } catch {}
+              });
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot documents note:', err)
+        )
+      );
+    } catch {}
+
+    // 7. Indicators
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'indicators'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: MetricIndicator[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as MetricIndicator));
+              setIndicators(list);
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot indicators note:', err)
+        )
+      );
+    } catch {}
+
+    // 8. Events
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'events'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: CalendarEvent[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as CalendarEvent));
+              setEvents(list);
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot events note:', err)
+        )
+      );
+    } catch {}
+
+    // 9. Professionals
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'professionals'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: ProfessionalAuditor[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as ProfessionalAuditor));
+              setProfessionals(list);
+            } else {
+              SAMPLE_PROFESSIONALS.forEach(async (p) => {
+                try {
+                  await setDoc(doc(db, 'professionals', p.id), cleanForFirestore(p));
+                } catch {}
+              });
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot professionals note:', err)
+        )
+      );
+    } catch {}
+
+    // 10. Courses (Academy)
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'courses'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: Course[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as Course));
+              setCourses(list);
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot courses note:', err)
+        )
+      );
+    } catch {}
+
+    // 11. Articles (Magazine)
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'articles'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: TechnicalArticle[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as TechnicalArticle));
+              setArticles(list);
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot articles note:', err)
+        )
+      );
+    } catch {}
+
+    // 12. Support Tickets
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'support_tickets'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: TechnicalTicket[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as TechnicalTicket));
+              setTickets(list);
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot support_tickets note:', err)
+        )
+      );
+    } catch {}
+
+    // 13. Audit Logs (LGPD Real-time)
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'audit_logs'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: AuditLogEntry[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as AuditLogEntry));
+              list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+              setAuditLogs(list.slice(0, 150));
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot audit_logs note:', err)
+        )
+      );
+    } catch {}
+
+    // 14. Landing CMS
+    try {
+      unsubs.push(
+        onSnapshot(
+          doc(db, 'landing_content', 'main'),
+          (snap) => {
+            if (snap.exists()) {
+              setLandingContent((prev) => ({ ...prev, ...snap.data() }));
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot landing_content note:', err)
+        )
+      );
+    } catch {}
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      unsubs.forEach((unsub) => {
+        try {
+          unsub();
+        } catch {}
+      });
     };
   }, []);
 
-  // Suppliers CRUD with Firestore sync
+  // Suppliers CRUD with Real-Time Firestore Sync
   const addSupplier = async (supplierData: Omit<Supplier, 'id' | 'createdAt'>) => {
     const newSupplier: Supplier = {
       ...supplierData,
@@ -226,7 +586,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     setSuppliers((prev) => [newSupplier, ...prev]);
     try {
-      await setDoc(doc(db, 'suppliers', newSupplier.id), newSupplier);
+      await setDoc(doc(db, 'suppliers', newSupplier.id), cleanForFirestore(newSupplier));
     } catch (e) {
       console.warn('Firestore addSupplier notice:', e);
     }
@@ -235,115 +595,814 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateSupplier = async (id: string, updated: Partial<Supplier>) => {
     setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...updated } : s)));
     try {
-      await updateDoc(doc(db, 'suppliers', id), updated);
+      await updateDoc(doc(db, 'suppliers', id), cleanForFirestore(updated));
     } catch (e) {
       console.warn('Firestore updateSupplier notice:', e);
     }
   };
 
-  const deleteSupplier = async (id: string) => {
+  const changeSupplierStatus = (
+    supplierId: string,
+    newStatus: SupplierStatus,
+    justification: string,
+    decidedBy?: string
+  ): { success: boolean; message?: string } => {
+    const supplier = suppliers.find((s) => s.id === supplierId);
+    if (!supplier) return { success: false, message: 'Fornecedor não encontrado.' };
+
+    const validation = validateSupplierStatusTransition(newStatus, justification);
+    if (!validation.isValid) {
+      return { success: false, message: validation.errorMessage };
+    }
+
+    const historyEntry: SupplierStatusHistoryEntry = {
+      id: `sh-${Date.now()}`,
+      previousStatus: supplier.status,
+      newStatus,
+      justification: justification.trim(),
+      decidedBy: decidedBy || 'Gestor do Sistema',
+      createdAt: new Date().toISOString(),
+    };
+
+    const lifecycleStatus =
+      newStatus === 'Cancelado'
+        ? 'cancelado'
+        : newStatus === 'Suspenso' || newStatus === 'Bloqueado'
+        ? 'suspenso'
+        : newStatus === 'Homologado' || newStatus === 'Qualificado'
+        ? 'ativo'
+        : 'homologacao';
+
+    const updatedHistory = [historyEntry, ...(supplier.statusHistory || [])];
+
+    setSuppliers((prev) =>
+      prev.map((s) => {
+        if (s.id === supplierId) {
+          return {
+            ...s,
+            status: newStatus,
+            lifecycleStatus,
+            statusHistory: updatedHistory,
+          };
+        }
+        return s;
+      })
+    );
+
+    // Sync to Firestore
+    try {
+      updateDoc(doc(db, 'suppliers', supplierId), cleanForFirestore({
+        status: newStatus,
+        lifecycleStatus,
+        statusHistory: updatedHistory,
+      }));
+    } catch (e) {
+      console.warn('Firestore changeSupplierStatus notice:', e);
+    }
+
+    addAuditLog({
+      userEmail: 'qualidade@nexusveritas.com',
+      userName: decidedBy || 'Gestor de Fornecedores',
+      action: `STATUS_FORNECEDOR: ${newStatus}`,
+      module: 'FORNECEDORES',
+      targetId: supplierId,
+      targetName: supplier.corporateName || supplier.tradeName,
+      details: `Transição de ${supplier.status} para ${newStatus}. Justificativa: ${justification.trim()}`,
+    });
+
+    return { success: true };
+  };
+
+  const deleteSupplier = async (id: string, justification?: string, decidedBy?: string) => {
+    const supplier = suppliers.find((s) => s.id === id);
+    if (!supplier) return;
+
+    const hasAudits = audits.some(
+      (a) => a.supplierOrClientId === id || a.clientName.toLowerCase() === supplier.tradeName.toLowerCase()
+    );
+    const hasCerts = certificates.some(
+      (c) => c.recipientName.toLowerCase() === supplier.tradeName.toLowerCase()
+    );
+    const hasPlans = actionPlans.some(
+      (p) => p.supplierId === id || p.supplierName?.toLowerCase() === supplier.tradeName.toLowerCase()
+    );
+
+    // Prompt Mestre Seção 6: Proibição de DELETE físico em fornecedores com histórico vinculado
+    if (hasAudits || hasCerts || hasPlans) {
+      const defaultJustification =
+        justification && justification.trim().length >= 20
+          ? justification.trim()
+          : 'Inativação lógica mandatória por vínculo com histórico de auditorias e certificados emitidos (ISO/LGPD).';
+
+      changeSupplierStatus(id, 'Cancelado', defaultJustification, decidedBy || 'Administrador Master');
+      return;
+    }
+
     setSuppliers((prev) => prev.filter((s) => s.id !== id));
     try {
       await deleteDoc(doc(db, 'suppliers', id));
     } catch (e) {
       console.warn('Firestore deleteSupplier notice:', e);
     }
+
+    addAuditLog({
+      userEmail: 'admin@nexusveritas.com',
+      userName: decidedBy || 'Administrador Master',
+      action: 'EXCLUSAO_FORNECEDOR',
+      module: 'FORNECEDORES',
+      targetId: id,
+      targetName: supplier.tradeName,
+      details: `Fornecedor sem histórico excluído do cadastro.`,
+    });
   };
 
-  // Audits CRUD
-  const addAudit = (auditData: Omit<Audit, 'id'>) => {
+  // Suppliers GED & Risk & IQF with Firestore Sync
+  const addSupplierDocumentGED = (supplierId: string, docData: Omit<SupplierDocumentGED, 'id' | 'uploadedAt'>) => {
+    const newDoc: SupplierDocumentGED = {
+      ...docData,
+      id: `ged-${Date.now()}`,
+      uploadedAt: new Date().toISOString().split('T')[0],
+    };
+    
+    let updatedDocs: SupplierDocumentGED[] = [];
+    setSuppliers((prev) =>
+      prev.map((s) => {
+        if (s.id === supplierId) {
+          const docs = s.documentsGED || [];
+          updatedDocs = [newDoc, ...docs];
+          return { ...s, documentsGED: updatedDocs };
+        }
+        return s;
+      })
+    );
+
+    try {
+      const currentSupplier = suppliers.find((s) => s.id === supplierId);
+      const allDocs = [newDoc, ...(currentSupplier?.documentsGED || [])];
+      updateDoc(doc(db, 'suppliers', supplierId), cleanForFirestore({ documentsGED: allDocs }));
+    } catch (e) {
+      console.warn('Firestore addSupplierDocumentGED notice:', e);
+    }
+
+    addAuditLog({
+      userEmail: 'qualidade@nexusveritas.com',
+      userName: 'Gestor da Qualidade',
+      action: 'UPLOAD_GED',
+      module: 'FORNECEDORES',
+      targetId: supplierId,
+      targetName: docData.title,
+      details: `Documento GED "${docData.title}" (${docData.category}) adicionado ao fornecedor.`,
+    });
+  };
+
+  const deleteSupplierDocumentGED = (supplierId: string, docId: string) => {
+    setSuppliers((prev) =>
+      prev.map((s) => {
+        if (s.id === supplierId) {
+          const filtered = (s.documentsGED || []).filter((d) => d.id !== docId);
+          try {
+            updateDoc(doc(db, 'suppliers', supplierId), cleanForFirestore({ documentsGED: filtered }));
+          } catch {}
+          return { ...s, documentsGED: filtered };
+        }
+        return s;
+      })
+    );
+  };
+
+  const generateSupplierShareToken = (
+    supplierId: string,
+    sharedWithEmail: string,
+    role: 'fornecedor' | 'cliente' | 'consultor'
+  ): string => {
+    const token = `NX-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const newToken: SupplierShareToken = {
+      id: `tok-${Date.now()}`,
+      token,
+      sharedWithEmail,
+      sharedWithRole: role,
+      createdAt: new Date().toISOString().split('T')[0],
+      expiresAt: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+      active: true,
+    };
+    setSuppliers((prev) =>
+      prev.map((s) => {
+        if (s.id === supplierId) {
+          const tokens = [newToken, ...(s.shareTokens || [])];
+          try {
+            updateDoc(doc(db, 'suppliers', supplierId), cleanForFirestore({ shareTokens: tokens }));
+          } catch {}
+          return { ...s, shareTokens: tokens };
+        }
+        return s;
+      })
+    );
+    addAuditLog({
+      userEmail: 'gestor@nexusveritas.com',
+      userName: 'Administrador',
+      action: 'COMPARTILHAMENTO_TOKEN',
+      module: 'FORNECEDORES',
+      targetId: supplierId,
+      targetName: sharedWithEmail,
+      details: `Token ${token} emitido para ${sharedWithEmail} (${role}).`,
+    });
+    return token;
+  };
+
+  const revokeSupplierShareToken = (supplierId: string, tokenId: string) => {
+    setSuppliers((prev) =>
+      prev.map((s) => {
+        if (s.id === supplierId) {
+          const tokens = (s.shareTokens || []).map((t) => (t.id === tokenId ? { ...t, active: false } : t));
+          try {
+            updateDoc(doc(db, 'suppliers', supplierId), cleanForFirestore({ shareTokens: tokens }));
+          } catch {}
+          return {
+            ...s,
+            shareTokens: tokens,
+          };
+        }
+        return s;
+      })
+    );
+  };
+
+  const recalculateSupplierIQF = (
+    supplierId: string,
+    quality: number,
+    delivery: number,
+    complianceOrEsg: number,
+    auditOrDoc?: number
+  ) => {
+    const esg = typeof auditOrDoc === 'number' ? complianceOrEsg : 85;
+    const docComp = typeof auditOrDoc === 'number' ? auditOrDoc : complianceOrEsg;
+    const iqfResult = calculateSupplierIQF(quality, delivery, esg, docComp);
+
+    let updatedBreakdown: SupplierIQFBreakdown;
+
+    setSuppliers((prev) =>
+      prev.map((s) => {
+        if (s.id === supplierId) {
+          updatedBreakdown = {
+            qualityScore: quality,
+            deliveryScore: delivery,
+            esgScore: esg,
+            complianceScore: docComp,
+            auditScore: s.iqfBreakdown?.auditScore || quality,
+            calculatedIQF: iqfResult.calculatedIQF,
+            category: iqfResult.category,
+            lastCalculated: new Date().toISOString().split('T')[0],
+          };
+
+          try {
+            updateDoc(doc(db, 'suppliers', supplierId), cleanForFirestore({
+              iqfScore: iqfResult.calculatedIQF,
+              iqfBreakdown: updatedBreakdown,
+              status: iqfResult.recommendedStatus,
+            }));
+          } catch {}
+
+          return {
+            ...s,
+            iqfScore: iqfResult.calculatedIQF,
+            iqfBreakdown: updatedBreakdown,
+            status: iqfResult.recommendedStatus,
+          };
+        }
+        return s;
+      })
+    );
+
+    addAuditLog({
+      userEmail: 'sistema@nexusveritas.com',
+      userName: 'Motor IQF ISO',
+      action: 'CALCULO_IQF',
+      module: 'FORNECEDORES',
+      targetId: supplierId,
+      targetName: `IQF ${iqfResult.calculatedIQF} (${iqfResult.category})`,
+      details: `Fórmula ponderada (40/25/20/15): Q=${quality}, P=${delivery}, ESG=${esg}, Doc=${docComp} -> IQF=${iqfResult.calculatedIQF} [${iqfResult.category}]`,
+    });
+  };
+
+  const updateSupplierRisk = (supplierId: string, risk: SupplierRiskAssessment) => {
+    setSuppliers((prev) =>
+      prev.map((s) => (s.id === supplierId ? { ...s, riskAssessment: risk } : s))
+    );
+    try {
+      updateDoc(doc(db, 'suppliers', supplierId), cleanForFirestore({ riskAssessment: risk }));
+    } catch {}
+  };
+
+  // Audits CRUD with Full Firestore Persistence
+  const addAudit = async (auditData: Omit<Audit, 'id'>) => {
+    let conformityScore = auditData.conformityScore;
+    let nonConformitiesCount = auditData.nonConformitiesCount;
+
+    if (auditData.checklistItems && auditData.checklistItems.length > 0) {
+      const scoreRes = calculateAuditComplianceScore(auditData.checklistItems);
+      conformityScore = scoreRes.score;
+      nonConformitiesCount = scoreRes.nonConformitiesCount;
+    }
+
     const newAudit: Audit = {
       ...auditData,
+      conformityScore,
+      nonConformitiesCount,
       id: `aud-${Date.now()}`,
     };
     setAudits((prev) => [newAudit, ...prev]);
+
+    try {
+      await setDoc(doc(db, 'audits', newAudit.id), cleanForFirestore(newAudit));
+    } catch (e) {
+      console.warn('Firestore addAudit notice:', e);
+    }
+
+    addAuditLog({
+      userEmail: 'auditor@nexusveritas.com',
+      userName: auditData.leadAuditor || 'Auditor Líder',
+      action: 'NOVA_AUDITORIA',
+      module: 'AUDITORIAS',
+      targetId: newAudit.id,
+      targetName: auditData.code,
+      details: `Auditoria ${auditData.code} criada para ${auditData.clientName} (${auditData.norm}). Score: ${conformityScore}%`,
+    });
   };
 
-  const updateAudit = (id: string, updated: Partial<Audit>) => {
-    setAudits((prev) => prev.map((a) => (a.id === id ? { ...a, ...updated } : a)));
+  const updateAudit = async (id: string, updated: Partial<Audit>) => {
+    let finalAudit: Audit | null = null;
+    setAudits((prev) =>
+      prev.map((a) => {
+        if (a.id === id) {
+          let updatedConformity = updated.conformityScore ?? a.conformityScore;
+          let updatedNCs = updated.nonConformitiesCount ?? a.nonConformitiesCount;
+
+          if (updated.checklistItems) {
+            const scoreRes = calculateAuditComplianceScore(updated.checklistItems);
+            updatedConformity = scoreRes.score;
+            updatedNCs = scoreRes.nonConformitiesCount;
+          }
+
+          finalAudit = {
+            ...a,
+            ...updated,
+            conformityScore: updatedConformity,
+            nonConformitiesCount: updatedNCs,
+          };
+          return finalAudit;
+        }
+        return a;
+      })
+    );
+
+    try {
+      await updateDoc(doc(db, 'audits', id), cleanForFirestore(updated));
+    } catch (e) {
+      console.warn('Firestore updateAudit notice:', e);
+    }
   };
 
-  const deleteAudit = (id: string) => {
+  const deleteAudit = async (id: string) => {
     setAudits((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await deleteDoc(doc(db, 'audits', id));
+    } catch (e) {
+      console.warn('Firestore deleteAudit notice:', e);
+    }
   };
 
-  // Action Plans CRUD
-  const addActionPlan = (planData: Omit<ActionPlan, 'id'>) => {
+  const createActionPlanFromAuditNC = async (
+    auditId: string,
+    item: AuditChecklistItem,
+    responsible: string,
+    deadline: string,
+    priority: 'Alta' | 'Média' | 'Baixa' = 'Alta'
+  ) => {
+    const audit = audits.find((a) => a.id === auditId);
+    const newPlan: ActionPlan = {
+      id: `plan-${Date.now()}`,
+      title: `Tratamento de NC: ${item.requirement}`,
+      description: `Não conformidade na auditoria ${audit?.code || ''} (${audit?.clientName || ''}): ${item.evidence || item.processOrArea}`,
+      auditId,
+      auditCode: audit?.code,
+      supplierId: audit?.supplierOrClientId,
+      supplierName: audit?.clientName,
+      ncRequirement: item.requirement,
+      responsible,
+      deadline,
+      status: 'Pendente',
+      priority,
+      correctiveAction: 'Ação corretiva a detalhar via 5W2H.',
+      rootCause: 'Análise de causa raiz (Ishikawa / 5 Porquês) pendente.',
+      method5W2H: {
+        what: `Eliminar desvio: ${item.requirement}`,
+        why: 'Atender aos requisitos normativos de certificação',
+        where: item.processOrArea || 'Planta Operacional',
+        whenDeadline: deadline,
+        whoResponsible: responsible,
+        howMethod: 'Revisão de procedimento, análise de falha e treinamento',
+        howMuchCost: 'R$ 0,00',
+      },
+      fiveWhys: ['', '', '', '', ''],
+      history: [
+        {
+          timestamp: new Date().toISOString(),
+          action: 'Ação aberta automaticamente pela constatação de auditoria',
+          author: audit?.leadAuditor || 'Auditor Líder',
+        },
+      ],
+    };
+    setActionPlans((prev) => [newPlan, ...prev]);
+
+    setAudits((prev) =>
+      prev.map((a) => {
+        if (a.id === auditId) {
+          const items = (a.checklistItems || []).map((chk) =>
+            chk.id === item.id ? { ...chk, actionPlanCreated: true, actionPlanId: newPlan.id } : chk
+          );
+          try {
+            updateDoc(doc(db, 'audits', auditId), cleanForFirestore({ checklistItems: items }));
+          } catch {}
+          return { ...a, checklistItems: items };
+        }
+        return a;
+      })
+    );
+
+    try {
+      await setDoc(doc(db, 'action_plans', newPlan.id), cleanForFirestore(newPlan));
+    } catch (e) {
+      console.warn('Firestore createActionPlanFromAuditNC notice:', e);
+    }
+
+    addAuditLog({
+      userEmail: 'auditor@nexusveritas.com',
+      userName: audit?.leadAuditor || 'Auditor Líder',
+      action: 'ABERTURA_PLANO_NC',
+      module: 'PLANOS_DE_ACAO',
+      targetId: newPlan.id,
+      targetName: newPlan.title,
+      details: `Plano de Ação gerado a partir do item ${item.requirement} da auditoria ${audit?.code}.`,
+    });
+  };
+
+  const submitAuditTechnicalApproval = async (auditId: string, approval: AuditTechnicalApproval) => {
+    const newStatus: AuditStatus = approval.decision === 'Aprovado' ? 'Aprovada' : 'Em Análise Técnica';
+    setAudits((prev) =>
+      prev.map((a) => {
+        if (a.id === auditId) {
+          return { ...a, status: newStatus, technicalApproval: approval };
+        }
+        return a;
+      })
+    );
+    try {
+      await updateDoc(doc(db, 'audits', auditId), cleanForFirestore({
+        status: newStatus,
+        technicalApproval: approval,
+      }));
+    } catch (e) {
+      console.warn('Firestore submitAuditTechnicalApproval notice:', e);
+    }
+    addAuditLog({
+      userEmail: approval.approvedBy,
+      userName: approval.approvedBy,
+      action: 'APROVACAO_TECNICA',
+      module: 'AUDITORIAS',
+      targetId: auditId,
+      targetName: approval.decision,
+      details: `Parecer Técnico emitido: ${approval.decision}. Parecer: ${approval.comments}`,
+    });
+  };
+
+  // Action Plans CRUD with Full Firestore Persistence
+  const addActionPlan = async (planData: Omit<ActionPlan, 'id'>) => {
     const newPlan: ActionPlan = {
       ...planData,
       id: `plan-${Date.now()}`,
+      history: [
+        {
+          timestamp: new Date().toISOString(),
+          action: 'Plano de ação cadastrado manualmente',
+          author: planData.responsible || 'Coordenador',
+        },
+      ],
     };
     setActionPlans((prev) => [newPlan, ...prev]);
+    try {
+      await setDoc(doc(db, 'action_plans', newPlan.id), cleanForFirestore(newPlan));
+    } catch (e) {
+      console.warn('Firestore addActionPlan notice:', e);
+    }
   };
 
-  const updateActionPlan = (id: string, updated: Partial<ActionPlan>) => {
+  const updateActionPlan = async (id: string, updated: Partial<ActionPlan>) => {
     setActionPlans((prev) => prev.map((p) => (p.id === id ? { ...p, ...updated } : p)));
+    try {
+      await updateDoc(doc(db, 'action_plans', id), cleanForFirestore(updated));
+    } catch (e) {
+      console.warn('Firestore updateActionPlan notice:', e);
+    }
   };
 
-  const deleteActionPlan = (id: string) => {
+  const deleteActionPlan = async (id: string) => {
     setActionPlans((prev) => prev.filter((p) => p.id !== id));
+    try {
+      await deleteDoc(doc(db, 'action_plans', id));
+    } catch (e) {
+      console.warn('Firestore deleteActionPlan notice:', e);
+    }
   };
 
-  // Indicators CRUD
-  const addIndicator = (indData: Omit<MetricIndicator, 'id' | 'lastUpdated'>) => {
+  const updateActionPlan5W2H = async (id: string, data: ActionPlan5W2H) => {
+    let updatedPlan: ActionPlan | null = null;
+    setActionPlans((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          const hist = p.history || [];
+          updatedPlan = {
+            ...p,
+            method5W2H: data,
+            deadline: data.whenDeadline || p.deadline,
+            responsible: data.whoResponsible || p.responsible,
+            status: p.status === 'Pendente' ? 'Em Andamento' : p.status,
+            history: [
+              ...hist,
+              {
+                timestamp: new Date().toISOString(),
+                action: 'Matriz 5W2H atualizada',
+                author: data.whoResponsible || 'Responsável',
+              },
+            ],
+          };
+          return updatedPlan;
+        }
+        return p;
+      })
+    );
+
+    if (updatedPlan) {
+      try {
+        await updateDoc(doc(db, 'action_plans', id), cleanForFirestore(updatedPlan));
+      } catch (e) {
+        console.warn('Firestore updateActionPlan5W2H notice:', e);
+      }
+    }
+  };
+
+  const updateActionPlanIshikawa = async (id: string, data: ActionPlanRootCauseIshikawa) => {
+    setActionPlans((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ishikawa: data, rootCause: data.primaryRootCause || p.rootCause } : p))
+    );
+    try {
+      await updateDoc(doc(db, 'action_plans', id), cleanForFirestore({
+        ishikawa: data,
+        rootCause: data.primaryRootCause,
+      }));
+    } catch (e) {
+      console.warn('Firestore updateActionPlanIshikawa notice:', e);
+    }
+  };
+
+  const updateActionPlan5Whys = async (id: string, whys: string[]) => {
+    setActionPlans((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, fiveWhys: whys } : p))
+    );
+    try {
+      await updateDoc(doc(db, 'action_plans', id), cleanForFirestore({ fiveWhys: whys }));
+    } catch (e) {
+      console.warn('Firestore updateActionPlan5Whys notice:', e);
+    }
+  };
+
+  const verifyActionPlanEffectiveness = async (
+    id: string,
+    isEffective: boolean,
+    notes: string,
+    verifiedBy: string
+  ) => {
+    let updatedPlan: ActionPlan | null = null;
+    setActionPlans((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          const newStatus: ActionPlanStatus = isEffective ? 'Concluído' : 'Ineficaz';
+          const hist = p.history || [];
+          updatedPlan = {
+            ...p,
+            status: newStatus,
+            effectivenessVerification: {
+              verifiedBy,
+              verificationDate: new Date().toISOString().split('T')[0],
+              isEffective,
+              notes,
+            },
+            history: [
+              ...hist,
+              {
+                timestamp: new Date().toISOString(),
+                action: `Verificação de Eficácia: ${isEffective ? 'EFICAZ' : 'INEFICAZ (Ciclo reiniciado)'}`,
+                author: verifiedBy,
+              },
+            ],
+          };
+          return updatedPlan;
+        }
+        return p;
+      })
+    );
+
+    if (updatedPlan) {
+      try {
+        await updateDoc(doc(db, 'action_plans', id), cleanForFirestore(updatedPlan));
+      } catch (e) {
+        console.warn('Firestore verifyActionPlanEffectiveness notice:', e);
+      }
+    }
+
+    addAuditLog({
+      userEmail: verifiedBy,
+      userName: verifiedBy,
+      action: 'VERIFICACAO_EFICACIA',
+      module: 'PLANOS_DE_ACAO',
+      targetId: id,
+      targetName: isEffective ? 'Eficaz' : 'Ineficaz',
+      details: `Parecer de eficácia registrado: ${isEffective ? 'Conforme' : 'Não eficaz'}. Notas: ${notes}`,
+    });
+  };
+
+  // Indicators CRUD with Full Firestore Persistence
+  const addIndicator = async (indData: Omit<MetricIndicator, 'id' | 'lastUpdated'>) => {
     const newInd: MetricIndicator = {
       ...indData,
       id: `ind-${Date.now()}`,
       lastUpdated: new Date().toISOString().split('T')[0],
     };
     setIndicators((prev) => [newInd, ...prev]);
+    try {
+      await setDoc(doc(db, 'indicators', newInd.id), cleanForFirestore(newInd));
+    } catch (e) {
+      console.warn('Firestore addIndicator notice:', e);
+    }
   };
 
-  const deleteIndicator = (id: string) => {
+  const deleteIndicator = async (id: string) => {
     setIndicators((prev) => prev.filter((i) => i.id !== id));
+    try {
+      await deleteDoc(doc(db, 'indicators', id));
+    } catch (e) {
+      console.warn('Firestore deleteIndicator notice:', e);
+    }
   };
 
-  // Certificates CRUD
-  const addCertificate = (certData: Omit<Certificate, 'id'>) => {
+  // Certificates CRUD with Full Firestore Persistence
+  const addCertificate = async (certData: Omit<Certificate, 'id'>) => {
     const newCert: Certificate = {
       ...certData,
       id: `cert-${Date.now()}`,
     };
     setCertificates((prev) => [newCert, ...prev]);
+    try {
+      await setDoc(doc(db, 'certificates', newCert.id), cleanForFirestore(newCert));
+    } catch (e) {
+      console.warn('Firestore addCertificate notice:', e);
+    }
+    addAuditLog({
+      userEmail: certData.technicalManager || 'gerente@nexusveritas.com',
+      userName: certData.technicalManager || 'Gerente Técnico',
+      action: 'EMISSAO_CERTIFICADO',
+      module: 'CERTIFICADOS',
+      targetId: newCert.id,
+      targetName: certData.certificateNumber,
+      details: `Certificado ${certData.certificateNumber} emitido para ${certData.recipientName} (${certData.norm}).`,
+    });
   };
 
-  const updateCertificate = (id: string, updated: Partial<Certificate>) => {
+  const updateCertificate = async (id: string, updated: Partial<Certificate>) => {
     setCertificates((prev) => prev.map((c) => (c.id === id ? { ...c, ...updated } : c)));
+    try {
+      await updateDoc(doc(db, 'certificates', id), cleanForFirestore(updated));
+    } catch (e) {
+      console.warn('Firestore updateCertificate notice:', e);
+    }
   };
 
-  const deleteCertificate = (id: string) => {
+  const deleteCertificate = async (id: string) => {
     setCertificates((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await deleteDoc(doc(db, 'certificates', id));
+    } catch (e) {
+      console.warn('Firestore deleteCertificate notice:', e);
+    }
   };
 
-  // Documents CRUD
-  const addDocument = (docData: Omit<CustomDocument, 'id' | 'updatedAt'>) => {
+  const updateCertificateLifecycle = async (
+    id: string,
+    newStatus: CertificateStatus,
+    justification: string,
+    responsible: string
+  ) => {
+    let updatedHistory: any[] = [];
+    setCertificates((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const hist = c.statusHistory || [];
+          updatedHistory = [
+            ...hist,
+            {
+              status: newStatus,
+              date: new Date().toISOString().split('T')[0],
+              justification,
+              responsible,
+            },
+          ];
+          return {
+            ...c,
+            status: newStatus,
+            statusHistory: updatedHistory,
+          };
+        }
+        return c;
+      })
+    );
+
+    try {
+      await updateDoc(doc(db, 'certificates', id), cleanForFirestore({
+        status: newStatus,
+        statusHistory: updatedHistory,
+      }));
+    } catch (e) {
+      console.warn('Firestore updateCertificateLifecycle notice:', e);
+    }
+
+    addAuditLog({
+      userEmail: responsible,
+      userName: responsible,
+      action: 'ALTERACAO_STATUS_CERTIFICADO',
+      module: 'CERTIFICADOS',
+      targetId: id,
+      targetName: newStatus,
+      details: `Status alterado para "${newStatus}". Justificativa: ${justification}`,
+    });
+  };
+
+  // Documents CRUD with Full Firestore Persistence
+  const addDocument = async (docData: Omit<CustomDocument, 'id' | 'updatedAt'>) => {
     const newDoc: CustomDocument = {
       ...docData,
       id: `doc-${Date.now()}`,
       updatedAt: new Date().toISOString().split('T')[0],
     };
     setDocuments((prev) => [newDoc, ...prev]);
+    try {
+      await setDoc(doc(db, 'documents', newDoc.id), cleanForFirestore(newDoc));
+    } catch (e) {
+      console.warn('Firestore addDocument notice:', e);
+    }
   };
 
-  const deleteDocument = (id: string) => {
+  const updateDocument = async (id: string, updated: Partial<CustomDocument>) => {
+    setDocuments((prev) => prev.map((d) => (d.id === id ? { ...d, ...updated } : d)));
+    try {
+      await updateDoc(doc(db, 'documents', id), cleanForFirestore(updated));
+    } catch (e) {
+      console.warn('Firestore updateDocument notice:', e);
+    }
+  };
+
+  const deleteDocument = async (id: string) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
+    try {
+      await deleteDoc(doc(db, 'documents', id));
+    } catch (e) {
+      console.warn('Firestore deleteDocument notice:', e);
+    }
   };
 
-  // Events CRUD
-  const addEvent = (evtData: Omit<CalendarEvent, 'id'>) => {
+  // Events CRUD with Full Firestore Persistence
+  const addEvent = async (evtData: Omit<CalendarEvent, 'id'>) => {
     const newEvt: CalendarEvent = {
       ...evtData,
       id: `evt-${Date.now()}`,
     };
     setEvents((prev) => [newEvt, ...prev]);
+    try {
+      await setDoc(doc(db, 'events', newEvt.id), cleanForFirestore(newEvt));
+    } catch (e) {
+      console.warn('Firestore addEvent notice:', e);
+    }
   };
 
-  const deleteEvent = (id: string) => {
+  const deleteEvent = async (id: string) => {
     setEvents((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await deleteDoc(doc(db, 'events', id));
+    } catch (e) {
+      console.warn('Firestore deleteEvent notice:', e);
+    }
   };
 
-  // Professionals
-  const addProfessional = (profData: Omit<ProfessionalAuditor, 'id' | 'rating' | 'reviewsCount'>) => {
+  // Professionals with Full Firestore Persistence
+  const addProfessional = async (profData: Omit<ProfessionalAuditor, 'id' | 'rating' | 'reviewsCount'>) => {
     const newProf: ProfessionalAuditor = {
       ...profData,
       id: `prof-${Date.now()}`,
@@ -351,6 +1410,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       reviewsCount: 1,
     };
     setProfessionals((prev) => [newProf, ...prev]);
+    try {
+      await setDoc(doc(db, 'professionals', newProf.id), cleanForFirestore(newProf));
+    } catch (e) {
+      console.warn('Firestore addProfessional notice:', e);
+    }
   };
 
   // Mapbox
@@ -362,8 +1426,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsMapActiveState(active);
   };
 
-  // Academy
-  const addCourse = (courseData: Omit<Course, 'id' | 'enrolled' | 'progress'>) => {
+  // Academy with Full Firestore Persistence
+  const addCourse = async (courseData: Omit<Course, 'id' | 'enrolled' | 'progress'>) => {
     const newCourse: Course = {
       ...courseData,
       id: `course-${Date.now()}`,
@@ -371,26 +1435,41 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       progress: 0,
     };
     setCourses((prev) => [newCourse, ...prev]);
+    try {
+      await setDoc(doc(db, 'courses', newCourse.id), cleanForFirestore(newCourse));
+    } catch (e) {
+      console.warn('Firestore addCourse notice:', e);
+    }
   };
 
-  const enrollInCourse = (courseId: string) => {
+  const enrollInCourse = async (courseId: string) => {
     setCourses((prev) =>
       prev.map((c) => (c.id === courseId ? { ...c, enrolled: true, progress: 10 } : c))
     );
+    try {
+      await updateDoc(doc(db, 'courses', courseId), cleanForFirestore({ enrolled: true, progress: 10 }));
+    } catch (e) {
+      console.warn('Firestore enrollInCourse notice:', e);
+    }
   };
 
-  // Magazine
-  const addArticle = (artData: Omit<TechnicalArticle, 'id' | 'date'>) => {
+  // Magazine with Full Firestore Persistence
+  const addArticle = async (artData: Omit<TechnicalArticle, 'id' | 'date'>) => {
     const newArt: TechnicalArticle = {
       ...artData,
       id: `art-${Date.now()}`,
       date: new Date().toLocaleDateString('pt-BR'),
     };
     setArticles((prev) => [newArt, ...prev]);
+    try {
+      await setDoc(doc(db, 'articles', newArt.id), cleanForFirestore(newArt));
+    } catch (e) {
+      console.warn('Firestore addArticle notice:', e);
+    }
   };
 
-  // Technical Support
-  const addTicket = (ticketData: Omit<TechnicalTicket, 'id' | 'createdAt' | 'status' | 'messages'>) => {
+  // Technical Support with Full Firestore Persistence
+  const addTicket = async (ticketData: Omit<TechnicalTicket, 'id' | 'createdAt' | 'status' | 'messages'>) => {
     const newTicket: TechnicalTicket = {
       ...ticketData,
       id: `tkt-${Date.now()}`,
@@ -406,34 +1485,56 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ],
     };
     setTickets((prev) => [newTicket, ...prev]);
+    try {
+      await setDoc(doc(db, 'support_tickets', newTicket.id), cleanForFirestore(newTicket));
+    } catch (e) {
+      console.warn('Firestore addTicket notice:', e);
+    }
   };
 
-  const addTicketMessage = (ticketId: string, text: string, sender: string, isStaff: boolean) => {
+  const addTicketMessage = async (ticketId: string, text: string, sender: string, isStaff: boolean) => {
+    let updatedMessages: any[] = [];
     setTickets((prev) =>
       prev.map((t) => {
         if (t.id === ticketId) {
+          updatedMessages = [
+            ...t.messages,
+            {
+              sender,
+              text,
+              timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+              isStaff,
+            },
+          ];
           return {
             ...t,
             status: isStaff ? 'Respondido' : 'Em Análise',
-            messages: [
-              ...t.messages,
-              {
-                sender,
-                text,
-                timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                isStaff,
-              },
-            ],
+            messages: updatedMessages,
           };
         }
         return t;
       })
     );
+
+    try {
+      await updateDoc(doc(db, 'support_tickets', ticketId), cleanForFirestore({
+        status: isStaff ? 'Respondido' : 'Em Análise',
+        messages: updatedMessages,
+      }));
+    } catch (e) {
+      console.warn('Firestore addTicketMessage notice:', e);
+    }
   };
 
-  // Landing CMS
-  const updateLandingContent = (newContent: Partial<LandingContent>) => {
-    setLandingContent((prev) => ({ ...prev, ...newContent }));
+  // Landing CMS with Firestore Persistence
+  const updateLandingContent = async (newContent: Partial<LandingContent>) => {
+    const merged = { ...landingContent, ...newContent };
+    setLandingContent(merged);
+    try {
+      await setDoc(doc(db, 'landing_content', 'main'), cleanForFirestore(merged), { merge: true });
+    } catch (e) {
+      console.warn('Firestore updateLandingContent notice:', e);
+    }
   };
 
   // Partners CRUD with Firestore Database Persistence
@@ -445,7 +1546,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     setPartners((prev) => [...prev, newPartner].sort((a, b) => (a.order || 0) - (b.order || 0)));
     try {
-      await setDoc(doc(db, 'partners', newPartner.id), newPartner);
+      await setDoc(doc(db, 'partners', newPartner.id), cleanForFirestore(newPartner));
     } catch (error) {
       console.warn('Firestore addPartner save notice:', error);
     }
@@ -456,7 +1557,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       prev.map((p) => (p.id === id ? { ...p, ...updated } : p)).sort((a, b) => (a.order || 0) - (b.order || 0))
     );
     try {
-      await updateDoc(doc(db, 'partners', id), updated);
+      await updateDoc(doc(db, 'partners', id), cleanForFirestore(updated));
     } catch (error) {
       console.warn('Firestore updatePartner save notice:', error);
     }
@@ -475,7 +1576,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPartners(DEFAULT_PARTNERS);
     for (const p of DEFAULT_PARTNERS) {
       try {
-        await setDoc(doc(db, 'partners', p.id), p);
+        await setDoc(doc(db, 'partners', p.id), cleanForFirestore(p));
       } catch (e) {
         console.warn('Firestore reset partner notice:', e);
       }
@@ -493,6 +1594,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contactEmail: 'qualidade@acoforte.com.br',
         phone: '(11) 3456-7890',
         category: 'Matéria-Prima Pesada',
+        criticality: 'Alta',
         iqfScore: 94,
         status: 'Homologado',
         primaryNorm: 'ISO 9001',
@@ -509,6 +1611,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contactEmail: 'auditoria@bionutri.com.br',
         phone: '(19) 3888-1212',
         category: 'Ingredientes e Embalagens',
+        criticality: 'Média',
         iqfScore: 88,
         status: 'Qualificado',
         primaryNorm: 'FSSC 22000',
@@ -525,6 +1628,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contactEmail: 'compliance@tecnopolymers.com.br',
         phone: '(41) 3211-9900',
         category: 'Componentes Automotivos',
+        criticality: 'Alta',
         iqfScore: 64, // Critical < 70
         status: 'Em Avaliação',
         primaryNorm: 'IATF 16949',
@@ -541,6 +1645,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contactEmail: 'dpo@cybershield.com.br',
         phone: '(11) 4004-9090',
         category: 'Tecnologia & Nuvem',
+        criticality: 'Alta',
         iqfScore: 98,
         status: 'Homologado',
         primaryNorm: 'ISO 27001',
@@ -557,6 +1662,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contactEmail: 'seguranca@logexpress.com.br',
         phone: '(31) 3322-1100',
         category: 'Logística Crítica',
+        criticality: 'Alta',
         iqfScore: 58, // Blocked / Critical
         status: 'Bloqueado',
         primaryNorm: 'ISO 45001',
@@ -690,6 +1796,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: 'cert-1',
         auditId: 'aud-3',
         certificateNumber: 'NVC-BR-2026-9001-8841',
+        certificateType: 'Acreditado Internacionalmente (ISO/IEC 17021-1)',
+        accreditationBody: 'CGCRE / INMETRO - Acreditação OHC-0021 / IAF MLA',
         recipientName: 'BioNutri Alimentos da Terra S.A.',
         clientAddress: 'Rodovia dos Bandeirantes, Km 42 - Campinas - SP',
         cnpjOrCpf: '23.456.789/0001-01',
@@ -697,11 +1805,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         scope: 'Produção, beneficiamento e envase asséptico de ingredientes alimentares e farináceos industriais.',
         issueDate: '2026-09-20',
         expiryDate: '2029-09-19',
-        status: 'Aprovado',
+        status: 'Vigente',
         qrCodeUrl: 'https://nexusveritas.org/verify/NVC-BR-2026-9001-8841',
         leadAuditor: 'Dra. Beatriz Fontana (IRCA-993201)',
         technicalManager: 'Bruno Alvarenga',
         technicalManagerSignature: 'Bruno Alvarenga - Gerente Técnico Sênior (CRC/IRCA)',
+        sha256Hash: 'a89f3b987c4892cbe7198fba901235cb18e1920acbe0912fa87239102c81bf20',
+        revisionNumber: 'Rev. 00',
       },
     ];
 
@@ -709,28 +1819,37 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {
         id: 'doc-1',
         title: 'Checklist Padrão Nexus ISO 9001:2015 - Cláusulas 4 a 10',
+        code: 'CHK-SGQ-001',
         type: 'checklist',
         norm: 'ISO 9001',
         version: 'v4.2',
         updatedAt: '2026-10-01',
+        status: 'Publicado',
+        isObsolete: false,
         description: 'Roteiro oficial de auditoria para avaliação completa do sistema de gestão da qualidade.',
       },
       {
         id: 'doc-2',
         title: 'Formulário RNC 5W2H - Relatório de Não Conformidade & Ação Corretiva',
+        code: 'FRM-CAPA-002',
         type: 'formulario',
         norm: 'Multinorma',
         version: 'v2.0',
         updatedAt: '2026-09-20',
+        status: 'Publicado',
+        isObsolete: false,
         description: 'Modelo institucional de investigação de causa-raiz e plano de contenção imediata.',
       },
       {
         id: 'doc-3',
         title: 'Template de Certificado Oficial de Acreditação Internacional Nexus',
+        code: 'TMP-CERT-003',
         type: 'certificado',
         norm: 'Global',
         version: 'v3.5',
         updatedAt: '2026-09-10',
+        status: 'Publicado',
+        isObsolete: false,
         description: 'Modelo vetorial com marca d’água de segurança, chave hash SHA-256 e selo de conformidade.',
       },
     ];
@@ -875,16 +1994,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addSupplier,
         updateSupplier,
         deleteSupplier,
+        changeSupplierStatus,
+        addSupplierDocumentGED,
+        deleteSupplierDocumentGED,
+        generateSupplierShareToken,
+        revokeSupplierShareToken,
+        recalculateSupplierIQF,
+        updateSupplierRisk,
 
         audits,
         addAudit,
         updateAudit,
         deleteAudit,
+        createActionPlanFromAuditNC,
+        submitAuditTechnicalApproval,
 
         actionPlans,
         addActionPlan,
         updateActionPlan,
         deleteActionPlan,
+        updateActionPlan5W2H,
+        updateActionPlanIshikawa,
+        updateActionPlan5Whys,
+        verifyActionPlanEffectiveness,
 
         indicators,
         addIndicator,
@@ -894,9 +2026,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addCertificate,
         updateCertificate,
         deleteCertificate,
+        updateCertificateLifecycle,
 
         documents,
         addDocument,
+        updateDocument,
         deleteDocument,
 
         events,
@@ -930,6 +2064,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatePartner,
         deletePartner,
         resetPartnersToDefault,
+
+        auditLogs,
+        addAuditLog,
 
         seedSampleData,
         clearAllData,

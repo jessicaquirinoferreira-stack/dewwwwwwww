@@ -32,6 +32,7 @@ export type NavigationTab =
   | 'planos-de-acao'
   | 'indicadores'
   | 'certificados'
+  | 'analise-tecnica-aprovacoes'
   | 'documentos'
   | 'rede-profissional'
   | 'revista'
@@ -60,43 +61,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, isAdmin } = useAuth();
   const { theme } = useTheme();
 
+  const userRole = user?.role || 'empresa';
+
   const sections = [
     {
       label: 'PRINCIPAL',
       items: [
-        { id: 'painel' as NavigationTab, label: 'Painel', icon: LayoutDashboard },
-        { id: 'fornecedores' as NavigationTab, label: 'Fornecedores', icon: Building2 },
-        { id: 'mapa-mundial' as NavigationTab, label: 'Mapa Mundial', icon: Globe2 },
-        { id: 'auditorias' as NavigationTab, label: 'Auditorias', icon: ClipboardCheck },
-      ],
+        { id: 'painel' as NavigationTab, label: 'Painel', icon: LayoutDashboard, roles: ['master', 'admin', 'auditor', 'empresa', 'colaborador'] },
+        { id: 'fornecedores' as NavigationTab, label: 'Fornecedores', icon: Building2, roles: ['master', 'admin', 'auditor', 'empresa'] },
+        { id: 'mapa-mundial' as NavigationTab, label: 'Mapa Mundial', icon: Globe2, roles: ['master', 'admin', 'auditor'] },
+        { id: 'auditorias' as NavigationTab, label: 'Auditorias', icon: ClipboardCheck, roles: ['master', 'admin', 'auditor', 'empresa'] },
+      ].filter((item) => item.roles.includes(userRole)),
     },
     {
       label: 'GESTÃO',
       items: [
-        { id: 'agenda' as NavigationTab, label: 'Agenda', icon: Calendar },
-        { id: 'planos-de-acao' as NavigationTab, label: 'Planos de ação', icon: CheckSquare },
-        { id: 'indicadores' as NavigationTab, label: 'Indicadores', icon: BarChart3 },
-        { id: 'certificados' as NavigationTab, label: 'Certificados', icon: Award },
-        { id: 'documentos' as NavigationTab, label: 'Documentos', icon: FileText },
-        { id: 'rede-profissional' as NavigationTab, label: 'Rede profissional', icon: Users2 },
-        { id: 'revista' as NavigationTab, label: 'Revista', icon: BookOpen },
-      ],
+        { id: 'agenda' as NavigationTab, label: 'Agenda', icon: Calendar, roles: ['master', 'admin', 'auditor', 'empresa', 'colaborador'] },
+        { id: 'planos-de-acao' as NavigationTab, label: 'Planos de ação', icon: CheckSquare, roles: ['master', 'admin', 'auditor', 'empresa', 'colaborador'] },
+        { id: 'indicadores' as NavigationTab, label: 'Indicadores', icon: BarChart3, roles: ['master', 'admin', 'auditor', 'empresa'] },
+        { id: 'certificados' as NavigationTab, label: 'Certificados', icon: Award, roles: ['master', 'admin', 'auditor', 'empresa'] },
+        { id: 'analise-tecnica-aprovacoes' as NavigationTab, label: 'Análise Técnica', icon: ShieldCheck, roles: ['master', 'admin', 'auditor'] },
+        { id: 'documentos' as NavigationTab, label: 'Documentos SGQ', icon: FileText, roles: ['master', 'admin', 'auditor', 'empresa', 'colaborador'] },
+        { id: 'rede-profissional' as NavigationTab, label: 'Rede profissional', icon: Users2, roles: ['master', 'admin', 'auditor', 'empresa'] },
+        { id: 'revista' as NavigationTab, label: 'Revista', icon: BookOpen, roles: ['master', 'admin', 'auditor', 'empresa'] },
+      ].filter((item) => item.roles.includes(userRole)),
     },
     {
       label: 'ACADEMY',
       items: [
-        { id: 'meus-cursos' as NavigationTab, label: 'Meus cursos', icon: GraduationCap },
-        { id: 'catalogo-academy' as NavigationTab, label: 'Catálogo Academy', icon: Layers },
-        { id: 'area-do-instrutor' as NavigationTab, label: 'Área do instrutor', icon: UserCheck },
-      ],
+        { id: 'meus-cursos' as NavigationTab, label: 'Meus cursos', icon: GraduationCap, roles: ['master', 'admin', 'auditor', 'empresa', 'instrutor'] },
+        { id: 'catalogo-academy' as NavigationTab, label: 'Catálogo Academy', icon: Layers, roles: ['master', 'admin', 'auditor', 'empresa', 'instrutor'] },
+        { id: 'area-do-instrutor' as NavigationTab, label: 'Área do instrutor', icon: UserCheck, roles: ['master', 'admin', 'instrutor'] },
+      ].filter((item) => item.roles.includes(userRole)),
     },
     {
       label: 'SUPORTE',
       items: [
-        { id: 'fala-com-corpo-tecnico' as NavigationTab, label: 'Fala com Corpo Técnico', icon: HeadphonesIcon },
-      ],
+        { id: 'fala-com-corpo-tecnico' as NavigationTab, label: 'Fala com Corpo Técnico', icon: HeadphonesIcon, roles: ['master', 'admin', 'auditor', 'empresa', 'colaborador'] },
+      ].filter((item) => item.roles.includes(userRole)),
     },
-  ];
+  ].filter((sec) => sec.items.length > 0);
 
   return (
     <aside

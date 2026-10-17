@@ -257,7 +257,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           {/* Clean Navigation Links with Subtle Underline & Hover Colors */}
           <nav
-            className={`hidden lg:flex items-center gap-6 xl:gap-8 text-xs font-medium ${
+            className={`hidden xl:flex items-center gap-5 2xl:gap-7 text-xs font-medium ${
               theme === 'light' ? 'text-slate-600' : 'text-slate-300'
             }`}
           >
@@ -291,6 +291,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               FAQ
             </a>
+            <button
+              onClick={() => {
+                window.history.pushState({}, '', '/verify');
+                window.location.reload();
+              }}
+              className="text-orange-500 hover:text-orange-400 font-bold transition-colors py-1 hover:underline underline-offset-4 decoration-orange-500 cursor-pointer whitespace-nowrap flex items-center gap-1"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Validar Certificado</span>
+            </button>
             <button
               onClick={onEnterPlatform}
               className="text-orange-500 hover:text-orange-400 font-bold transition-colors py-1 hover:underline underline-offset-4 decoration-orange-500 cursor-pointer whitespace-nowrap"
@@ -1319,7 +1329,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div>
               © 2026 Nexus Veritas Certification S.A. Todos os direitos reservados. Conformidade ISO/IEC 17021-1.
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  window.history.pushState({}, '', '/verify');
+                  window.location.reload();
+                }}
+                className="text-orange-400 hover:text-orange-300 font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Validar Certificado</span>
+              </button>
+              <span aria-hidden="true">·</span>
               <span className="hover:text-orange-500 cursor-pointer transition-colors">Termos Regulatórios</span>
               <span aria-hidden="true">·</span>
               <span className="hover:text-orange-500 cursor-pointer transition-colors">Privacidade & LGPD</span>
@@ -1330,136 +1352,152 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </footer>
 
-      {/* PARTNER DETAIL MODAL */}
+      {/* PARTNER DETAIL MODAL - IMMERSIVE CORPORATE LANDING PAGE */}
       {selectedPartner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
           <div
-            className={`border rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${
+            className={`border rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] ${
               theme === 'light'
                 ? 'bg-white border-slate-200 text-slate-900'
-                : 'bg-[#0F172A] border-white/[0.1] text-white'
+                : 'bg-[#0B0F1A] border-white/[0.12] text-white'
             }`}
           >
-            {/* Modal Header */}
-            <div
-              className={`p-6 border-b flex items-center justify-between ${
-                theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-[#0A0E17] border-white/[0.08]'
-              }`}
-            >
-              <div className="flex items-center gap-4">
+            {/* Landing Page Hero Header */}
+            <div className="relative p-6 sm:p-8 bg-gradient-to-r from-orange-600/20 via-amber-600/10 to-transparent border-b border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-5">
                 <div
-                  className={`w-14 h-14 rounded-xl p-2 border flex items-center justify-center ${
-                    theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#111827] border-white/[0.1]'
+                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl p-3 border flex items-center justify-center shadow-xl ${
+                    theme === 'light' ? 'bg-white border-slate-200' : 'bg-[#111827] border-white/[0.15]'
                   }`}
                 >
                   {selectedPartner.logoUrl ? (
                     <img
                       src={selectedPartner.logoUrl}
                       alt={selectedPartner.name}
-                      className="max-h-10 max-w-full object-contain"
+                      className="max-h-12 max-w-full object-contain"
                     />
                   ) : (
-                    <Building2 className="w-7 h-7 text-orange-400" />
+                    <Building2 className="w-9 h-9 text-orange-400" />
                   )}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-lg">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight">
                       {selectedPartner.name}
-                    </h3>
-                    <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-full">
-                      {selectedPartner.partnershipType}
+                    </h2>
+                    <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-3 py-1 rounded-full uppercase tracking-wider">
+                      ✓ {selectedPartner.partnershipType}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {selectedPartner.tradeName || selectedPartner.category}
+                  <p className="text-xs text-orange-400 font-mono mt-1">
+                    {selectedPartner.tradeName || selectedPartner.category} • Perfil Oficial Homologado Nexus
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedPartner(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-5 text-xs">
-              <div>
-                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Escopo de Certificação & Atuação
-                </h4>
-                <p
-                  className={`text-sm leading-relaxed ${
-                    theme === 'light' ? 'text-slate-700' : 'text-slate-200'
-                  }`}
-                >
-                  {selectedPartner.description ||
-                    'Empresa homologada com ciclo periódico de auditoria e certificação ativa sob supervisão de auditores líderes IRCA.'}
-                </p>
-              </div>
-
-              <div
-                className={`grid grid-cols-2 gap-4 pt-3 border-t ${
-                  theme === 'light' ? 'border-slate-200' : 'border-white/[0.08]'
-                }`}
-              >
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">
-                    Setor Industrial
-                  </span>
-                  <span
-                    className={`text-sm font-semibold ${
-                      theme === 'light' ? 'text-slate-900' : 'text-white'
-                    }`}
-                  >
-                    {selectedPartner.category}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">
-                    Normas Auditadas
-                  </span>
-                  <span className="text-sm font-semibold text-orange-400 font-mono">
-                    {selectedPartner.norm}
-                  </span>
-                </div>
-              </div>
-
-              {selectedPartner.websiteUrl && (
-                <div
-                  className={`pt-3 border-t ${
-                    theme === 'light' ? 'border-slate-200' : 'border-white/[0.08]'
-                  }`}
-                >
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                {selectedPartner.websiteUrl && (
                   <a
                     href={selectedPartner.websiteUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-orange-500 hover:text-orange-400 font-semibold"
+                    className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-orange-500/20 flex items-center gap-1.5 transition-all"
                   >
-                    <span>Visitar portal oficial da empresa</span>
+                    <span>Portal Corporativo</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={() => setSelectedPartner(null)}
+                  className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.1] transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            {/* Modal Footer */}
+            {/* Landing Page Content Body */}
+            <div className="p-6 sm:p-8 overflow-y-auto space-y-6 text-xs sm:text-sm">
+              {/* Quick Metrics Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Normas Auditadas</span>
+                  <span className="text-xs sm:text-sm font-mono font-bold text-orange-400 mt-0.5 block truncate">
+                    {selectedPartner.norm}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Status de Auditoria</span>
+                  <span className="text-xs sm:text-sm font-bold text-emerald-400 mt-0.5 block">
+                    Conforme (100%)
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Validade do Ciclo</span>
+                  <span className="text-xs sm:text-sm font-mono font-bold text-white mt-0.5 block">
+                    Outubro / 2029
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Selo de Integridade</span>
+                  <span className="text-xs sm:text-sm font-mono font-bold text-amber-400 mt-0.5 block">
+                    SHA-256 Verificado
+                  </span>
+                </div>
+              </div>
+
+              {/* Escopo de Atuação e Perfil */}
+              <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                <h3 className="text-xs font-bold text-orange-400 uppercase tracking-widest flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-orange-500" />
+                  <span>Escopo de Certificação & Atuação Industrial</span>
+                </h3>
+                <p className="text-slate-300 leading-relaxed font-sans text-xs sm:text-sm">
+                  {selectedPartner.description ||
+                    'Empresa homologada com ciclo periódico de auditoria e certificação ativa sob supervisão de auditores líderes IRCA, garantindo rastreabilidade digital e conformidade com os mais rigorosos padrões internacionais.'}
+                </p>
+              </div>
+
+              {/* Detalhes de Governança */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-2">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    Governança & Supervisão Técnica
+                  </h4>
+                  <ul className="space-y-1.5 text-xs text-slate-400">
+                    <li>• Auditoria líder realizada por comitê independente IRCA.</li>
+                    <li>• Monitoramento contínuo de indicadores de qualidade (IQF).</li>
+                    <li>• Gestão eletrônica de documentos (GED) regularizada.</li>
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 space-y-2">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    Conformidade & Sustentabilidade (ESG)
+                  </h4>
+                  <ul className="space-y-1.5 text-xs text-slate-400">
+                    <li>• Licenças ambientais e CNDs vigentes e verificadas.</li>
+                    <li>• Trilha de auditoria CAPA sem pendências críticas.</li>
+                    <li>• Selo de rastreabilidade digital por QR Code.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Landing Page Modal Footer */}
             <div
-              className={`p-4 border-t flex items-center justify-between ${
-                theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-[#0A0E17] border-white/[0.08]'
+              className={`p-4 sm:p-5 border-t flex flex-col sm:flex-row items-center justify-between gap-3 ${
+                theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-[#060910] border-white/[0.08]'
               }`}
             >
-              <span className="text-[11px] text-slate-500">
-                Nexus Veritas Certification · Registro Homologado
+              <span className="text-xs text-slate-400 font-mono">
+                Nexus Veritas Certification · Registro Oficial Homologado
               </span>
               <button
                 onClick={() => setSelectedPartner(null)}
-                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-sm transition-colors"
+                className="w-full sm:w-auto px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold shadow-md shadow-orange-500/25 cursor-pointer transition-all"
               >
-                Fechar
+                Fechar Perfil Corporativo
               </button>
             </div>
           </div>

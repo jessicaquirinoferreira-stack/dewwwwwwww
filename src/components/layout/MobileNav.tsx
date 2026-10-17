@@ -64,7 +64,14 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   return (
     <>
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0B132B]/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex items-center justify-around shadow-lg text-slate-400">
+      {/* Mobile Bottom Navigation Bar */}
+      <nav
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-md border-t px-2 py-1.5 flex items-center justify-around shadow-lg transition-colors ${
+          theme === 'light'
+            ? 'bg-white/95 border-slate-200 text-slate-600 shadow-slate-200/50'
+            : 'bg-[#0B132B]/95 border-slate-800 text-slate-400'
+        }`}
+      >
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
@@ -74,7 +81,9 @@ export const MobileNav: React.FC<MobileNavProps> = ({
               onClick={() => handleSelect(item.id)}
               className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
                 isActive
-                  ? 'text-orange-400 font-semibold scale-105'
+                  ? 'text-orange-500 font-semibold scale-105'
+                  : theme === 'light'
+                  ? 'text-slate-500 hover:text-slate-900'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -88,7 +97,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         <button
           onClick={() => setDrawerOpen(true)}
           className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all ${
-            drawerOpen ? 'text-blue-400' : 'text-slate-400 hover:text-white'
+            drawerOpen
+              ? 'text-orange-500'
+              : theme === 'light'
+              ? 'text-slate-500 hover:text-slate-900'
+              : 'text-slate-400 hover:text-white'
           }`}
         >
           <Menu className="w-5 h-5 mb-0.5" />
@@ -104,24 +117,46 @@ export const MobileNav: React.FC<MobileNavProps> = ({
             onClick={() => setDrawerOpen(false)}
           />
 
-          <div className="relative ml-auto w-4/5 max-w-xs bg-[#0F172A] border-l border-slate-800 h-full shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-200 text-slate-200">
+          <div
+            className={`relative ml-auto w-4/5 max-w-xs border-l h-full shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-200 transition-colors ${
+              theme === 'light'
+                ? 'bg-white border-slate-200 text-slate-800'
+                : 'bg-[#0F172A] border-slate-800 text-slate-200'
+            }`}
+          >
             {/* Drawer Header */}
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+            <div
+              className={`p-4 border-b flex items-center justify-between transition-colors ${
+                theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800'
+              }`}
+            >
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-lg bg-transparent flex items-center justify-center overflow-hidden p-0.5">
                   <img
                     src="https://i.postimg.cc/zvWspM3H/Chat-GPT-Image-8-de-out-de-2026-18-07-55.png"
                     alt="Nexus Veritas Logo"
                     className="w-full h-full object-contain drop-shadow"
+                    style={{
+                      filter:
+                        theme === 'light'
+                          ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.14)) contrast(1.1)'
+                          : 'drop-shadow(0 0 8px rgba(249,115,22,0.3))',
+                    }}
                   />
                 </div>
-                <span className="font-brand text-xs font-bold text-white tracking-wider">
+                <span
+                  className={`font-brand text-xs font-bold tracking-wider ${
+                    theme === 'light' ? 'text-slate-900' : 'text-white'
+                  }`}
+                >
                   NEXUS VERITAS
                 </span>
               </div>
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white"
+                className={`p-1.5 rounded-lg transition-colors ${
+                  theme === 'light' ? 'text-slate-500 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -130,79 +165,72 @@ export const MobileNav: React.FC<MobileNavProps> = ({
             {/* Drawer Items */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                <p
+                  className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${
+                    theme === 'light' ? 'text-slate-400' : 'text-slate-500'
+                  }`}
+                >
                   MÓDULOS DE GESTÃO
                 </p>
                 <div className="space-y-1">
-                  <button
-                    onClick={() => handleSelect('mapa-mundial')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
-                  >
-                    <Globe2 className="w-4 h-4 text-orange-400" />
-                    <span>Mapa Mundial de Fornecedores</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('planos-de-acao')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
-                  >
-                    <CheckSquare className="w-4 h-4 text-orange-400" />
-                    <span>Planos de Ação (CAPA)</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('indicadores')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
-                  >
-                    <BarChart3 className="w-4 h-4 text-orange-400" />
-                    <span>Indicadores de Desempenho</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('certificados')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
-                  >
-                    <Award className="w-4 h-4 text-orange-400" />
-                    <span>Certificados & Acreditação</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('documentos')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
-                  >
-                    <FileText className="w-4 h-4 text-orange-400" />
-                    <span>Documentos Personalizados</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('rede-profissional')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
-                  >
-                    <Users2 className="w-4 h-4 text-orange-400" />
-                    <span>Rede de Auditores</span>
-                  </button>
-                  <button
-                    onClick={() => handleSelect('revista')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
-                  >
-                    <BookOpen className="w-4 h-4 text-orange-400" />
-                    <span>Revista Técnica</span>
-                  </button>
+                  {[
+                    { id: 'mapa-mundial' as NavigationTab, label: 'Mapa Mundial de Fornecedores', icon: Globe2 },
+                    { id: 'planos-de-acao' as NavigationTab, label: 'Planos de Ação (CAPA)', icon: CheckSquare },
+                    { id: 'indicadores' as NavigationTab, label: 'Indicadores de Desempenho', icon: BarChart3 },
+                    { id: 'certificados' as NavigationTab, label: 'Certificados & Acreditação', icon: Award },
+                    { id: 'analise-tecnica-aprovacoes' as NavigationTab, label: 'Análise Técnica & Aprovações', icon: ShieldCheck },
+                    { id: 'documentos' as NavigationTab, label: 'Documentos SGQ', icon: FileText },
+                    { id: 'rede-profissional' as NavigationTab, label: 'Rede de Auditores', icon: Users2 },
+                    { id: 'revista' as NavigationTab, label: 'Revista Técnica', icon: BookOpen },
+                  ].map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleSelect(item.id)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors ${
+                          theme === 'light'
+                            ? 'text-slate-700 hover:bg-slate-100'
+                            : 'text-slate-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        <ItemIcon className="w-4 h-4 text-orange-500 shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                <p
+                  className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${
+                    theme === 'light' ? 'text-slate-400' : 'text-slate-500'
+                  }`}
+                >
                   ACADEMY & SUPORTE
                 </p>
                 <div className="space-y-1">
                   <button
                     onClick={() => handleSelect('meus-cursos')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors ${
+                      theme === 'light'
+                        ? 'text-slate-700 hover:bg-slate-100'
+                        : 'text-slate-300 hover:bg-slate-800'
+                    }`}
                   >
-                    <GraduationCap className="w-4 h-4 text-orange-400" />
+                    <GraduationCap className="w-4 h-4 text-orange-500 shrink-0" />
                     <span>Meus Cursos / Academy</span>
                   </button>
                   <button
                     onClick={() => handleSelect('fala-com-corpo-tecnico')}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors ${
+                      theme === 'light'
+                        ? 'text-slate-700 hover:bg-slate-100'
+                        : 'text-slate-300 hover:bg-slate-800'
+                    }`}
                   >
-                    <HeadphonesIcon className="w-4 h-4 text-orange-400" />
+                    <HeadphonesIcon className="w-4 h-4 text-orange-500 shrink-0" />
                     <span>Fala com Corpo Técnico</span>
                   </button>
                   <button
@@ -210,9 +238,13 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                       setDrawerOpen(false);
                       onOpenSettings();
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors ${
+                      theme === 'light'
+                        ? 'text-slate-700 hover:bg-slate-100'
+                        : 'text-slate-300 hover:bg-slate-800'
+                    }`}
                   >
-                    <Settings className="w-4 h-4 text-orange-400" />
+                    <Settings className="w-4 h-4 text-orange-500 shrink-0" />
                     <span>Configurações & Perfil</span>
                   </button>
                   {isAdmin && (
@@ -221,9 +253,13 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                         setDrawerOpen(false);
                         onOpenAdmin();
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-orange-300 bg-orange-950/60 border border-orange-800/80 hover:bg-orange-900/60 font-semibold"
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs border font-semibold transition-all ${
+                        theme === 'light'
+                          ? 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100'
+                          : 'text-orange-300 bg-orange-950/60 border-orange-800/80 hover:bg-orange-900/60'
+                      }`}
                     >
-                      <Shield className="w-4 h-4 text-orange-400" />
+                      <Shield className="w-4 h-4 text-orange-500 shrink-0" />
                       <span>Painel Master Admin</span>
                     </button>
                   )}

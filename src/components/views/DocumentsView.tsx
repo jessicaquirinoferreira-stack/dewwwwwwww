@@ -31,6 +31,8 @@ export const DocumentsView: React.FC = () => {
     norm: 'ISO 9001',
     version: 'v1.0',
     description: '',
+    status: 'Publicado' as const,
+    isObsolete: false,
   });
 
   const filteredDocs = documents
@@ -54,6 +56,8 @@ export const DocumentsView: React.FC = () => {
       norm: 'ISO 9001',
       version: 'v1.0',
       description: '',
+      status: 'Publicado',
+      isObsolete: false,
     });
   };
 

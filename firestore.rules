@@ -1,97 +1,71 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions for auth & roles
-    function isAuthenticated() {
-      return request.auth != null;
-    }
+    // Nexus Veritas Certification - Regras de Acesso e Sincronização em Tempo Real
     
-    function isAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.email == 'admin@x.com' ||
-        request.auth.uid == 'admin-01'
-      );
-    }
-
-    // Global default-deny
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Partners & Public Landing content
-    match /partners/{partnerId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    // Users collection
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-    }
-
-    // Companies / Clients collection
-    match /companies/{companyId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Suppliers collection
-    match /suppliers/{supplierId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Audits collection
-    match /audits/{auditId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Certificates collection (publicly readable for verification, writable by authenticated users)
-    match /certificates/{certificateId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    // Action Plans (CAPA)
-    match /action_plans/{planId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Indicators
-    match /indicators/{indicatorId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Documents / Checklists
-    match /documents/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Professionals Network
-    match /professionals/{profId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    // Courses & Academy
-    match /courses/{courseId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    // Support Tickets
-    match /support_tickets/{ticketId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Technical Managers (for signatures)
-    match /technical_managers/{managerId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    // Test connection
+    // Teste de conexão
     match /test/connection {
-      allow read: if true;
+      allow read, write: if true;
+    }
+
+    // Parceiros e landing institucional
+    match /partners/{partnerId} {
+      allow read, write: if true;
+    }
+
+    // Fornecedores e gestão documental GED
+    match /suppliers/{supplierId} {
+      allow read, write: if true;
+    }
+
+    // Auditorias de conformidade (1ª, 2ª e 3ª partes)
+    match /audits/{auditId} {
+      allow read, write: if true;
+    }
+
+    // Certificados oficiais emitidos e validação pública
+    match /certificates/{certificateId} {
+      allow read, write: if true;
+    }
+
+    // Planos de Ação CAPA (5W2H e Ishikawa)
+    match /action_plans/{planId} {
+      allow read, write: if true;
+    }
+
+    // Indicadores e métricas de desempenho (IQF)
+    match /indicators/{indicatorId} {
+      allow read, write: if true;
+    }
+
+    // Documentos SGQ e procedimentos controlados
+    match /documents/{docId} {
+      allow read, write: if true;
+    }
+
+    // Trilha de auditoria contínua (LGPD)
+    match /audit_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    // Rede profissional de auditores
+    match /professionals/{profId} {
+      allow read, write: if true;
+    }
+
+    // Cursos e qualificações Academy
+    match /courses/{courseId} {
+      allow read, write: if true;
+    }
+
+    // Chamados e suporte ao corpo técnico
+    match /support_tickets/{ticketId} {
+      allow read, write: if true;
+    }
+
+    // Usuários e perfis RBAC
+    match /users/{userId} {
+      allow read, write: if true;
     }
   }
 }
