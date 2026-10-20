@@ -527,6 +527,19 @@ export interface ModularCalculationRule {
   }[];
 }
 
+export interface SipocItem {
+  id: string;
+  processName: string;
+  suppliers: string;
+  inputs: string;
+  processSteps: string;
+  outputs: string;
+  customers: string;
+  requirements?: string;
+  responsible?: string;
+  notes?: string;
+}
+
 export interface ModularProcess {
   id: string;
   code: string; // Ex: PROC-MOD-2026-001
@@ -541,6 +554,8 @@ export interface ModularProcess {
   customScaleOptions?: string[]; // Opções custom se evaluationMethod === 'custom'
   calculationRules: ModularCalculationRule;
   criteria: ModularProcessCriterion[];
+  sipocItems?: SipocItem[]; // Ferramenta SIPOC de alta nível Six Sigma/DMAIC
+  actionPlans?: ActionPlan[]; // Planos de Ação e Não Conformidades (5W2H, Causa-Raiz, Contenção, Eficácia)
   overallScore: number; // 0 a 100 ou índice geral
   classificationResult: string; // Ex: "Aprovado (92%)", "Maturidade Nível 4", "Viável"
   strongPoints?: string[];

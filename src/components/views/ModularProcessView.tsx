@@ -31,7 +31,9 @@ import {
   ArrowRight,
   Upload,
   Paperclip,
-  CheckSquare
+  CheckSquare,
+  HelpCircle,
+  History
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -44,7 +46,12 @@ import {
   ModularEvaluationMethod,
   ModularProcessCriterion,
   ModularCalculationRule,
-  ModularProcessStatus
+  ModularProcessStatus,
+  SipocItem,
+  ActionPlan,
+  ActionPlanStatus,
+  ActionPlan5W2H,
+  ActionPlanRootCauseIshikawa
 } from '../../types';
 
 interface ModularProcessViewProps {
@@ -105,6 +112,7 @@ export const ModularProcessView: React.FC<ModularProcessViewProps> = ({
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [selectedProcessForExec, setSelectedProcessForExec] = useState<ModularProcess | null>(null);
+  const [execTab, setExecTab] = useState<'criteria' | 'sipoc' | 'action_plans'>('criteria');
   const [selectedProcessForReport, setSelectedProcessForReport] = useState<ModularProcess | null>(null);
   const [selectedProcessForTemplate, setSelectedProcessForTemplate] = useState<ModularProcess | null>(null);
   const [templateNameInput, setTemplateNameInput] = useState('');
@@ -405,6 +413,215 @@ export const ModularProcessView: React.FC<ModularProcessViewProps> = ({
     );
     setSelectedProcessForExec((prev) => prev ? { ...prev, criteria: updatedCriteria } : null);
     updateModularProcess(selectedProcessForExec.id, { criteria: updatedCriteria });
+  };
+
+  // Add new requirement / question in execution mode
+  const handleAddCriterionInExecution = () => {
+    if (!selectedProcessForExec) return;
+    const num = selectedProcessForExec.criteria.length + 1;
+    const newCrit: ModularProcessCriterion = {
+      id: `crit-exec-${Date.now()}-${num}`,
+      code: `REQ-${String(num).padStart(2, '0')}`,
+      title: 'Novo Requisito / Pergunta Adicionada',
+      categoryOrPillar: 'Geral',
+      description: 'Descrição do requisito inserido durante a auditoria/diagnóstico.',
+      weight: 1.0,
+      criticality: 'Média',
+      value: selectedProcessForExec.evaluationMethod === 'score_5' ? 5 : 'Atende',
+      scorePercentage: 100,
+      statusLabel: 'Atende',
+      evidenceNotes: '',
+      attachments: [],
+    };
+    const updatedCriteria = [...selectedProcessForExec.criteria, newCrit];
+    
+    // Recalculate score
+    const totalWeight = updatedCriteria.reduce((sum, c) => sum + (c.weight || 1), 0);
+    const weightedSum = updatedCriteria.reduce(
+      (sum, c) => sum + (c.scorePercentage || 0) * (c.weight || 1),
+      0
+    );
+    const newScore = totalWeight > 0 ? Math.round((weightedSum / totalWeight) * 10) / 10 : 0;
+    
+    const updatedProcess: ModularProcess = {
+      ...selectedProcessForExec,
+      criteria: updatedCriteria,
+      overallScore: newScore,
+    };
+    setSelectedProcessForExec(updatedProcess);
+    updateModularProcess(selectedProcessForExec.id, {
+      criteria: updatedCriteria,
+      overallScore: newScore,
+    });
+  };
+
+  // Edit specific criterion properties in execution mode (100% modularly editable)
+  const handleEditCriterionField = (criterionId: string, field: keyof ModularProcessCriterion, value: any) => {
+    if (!selectedProcessForExec) return;
+    const updatedCriteria = selectedProcessForExec.criteria.map((c) => {
+      if (c.id === criterionId) {
+        return { ...c, [field]: value };
+      }
+      return c;
+    });
+    setSelectedProcessForExec(prev => prev ? { ...prev, criteria: updatedCriteria } : null);
+    updateModularProcess(selectedProcessForExec.id, { criteria: updatedCriteria });
+  };
+
+  // Attach evidence simulation to criterion
+  const handleAttachEvidenceToCriterion = (criterionId: string) => {
+    if (!selectedProcessForExec) return;
+    const fileName = prompt('Informe o nome ou referência do documento/evidência a anexar (ex: Laudo_Tecnico_Rev2.pdf, Relatorio_Calibracao.pdf):');
+    if (!fileName || !fileName.trim()) return;
+
+    const newAttachment = {
+      name: fileName.trim(),
+      url: '#',
+      size: `${Math.floor(Math.random() * 240 + 120)} KB`,
+      type: 'PDF / Documento Técnico'
+    };
+
+    const updatedCriteria = selectedProcessForExec.criteria.map((c) => {
+      if (c.id === criterionId) {
+        const currentAttachments = c.attachments || [];
+        return {
+          ...c,
+          attachments: [...currentAttachments, newAttachment],
+          evidenceNotes: c.evidenceNotes ? `${c.evidenceNotes} | Evidência anexada: ${fileName.trim()}` : `Evidência anexada: ${fileName.trim()}`
+        };
+      }
+      return c;
+    });
+
+    setSelectedProcessForExec(prev => prev ? { ...prev, criteria: updatedCriteria } : null);
+    updateModularProcess(selectedProcessForExec.id, { criteria: updatedCriteria });
+    alert(`Evidência "${fileName.trim()}" anexada com sucesso ao critério!`);
+  };
+
+  // Remove criterion in execution mode
+  const handleRemoveCriterionInExecution = (criterionId: string) => {
+    if (!selectedProcessForExec) return;
+    if (selectedProcessForExec.criteria.length <= 1) {
+      alert('O processo deve conter pelo menos um critério.');
+      return;
+    }
+    const updatedCriteria = selectedProcessForExec.criteria.filter(c => c.id !== criterionId);
+    
+    // Recalculate score
+    const totalWeight = updatedCriteria.reduce((sum, c) => sum + (c.weight || 1), 0);
+    const weightedSum = updatedCriteria.reduce(
+      (sum, c) => sum + (c.scorePercentage || 0) * (c.weight || 1),
+      0
+    );
+    const newScore = totalWeight > 0 ? Math.round((weightedSum / totalWeight) * 10) / 10 : 0;
+
+    const updatedProcess: ModularProcess = {
+      ...selectedProcessForExec,
+      criteria: updatedCriteria,
+      overallScore: newScore,
+    };
+    setSelectedProcessForExec(updatedProcess);
+    updateModularProcess(selectedProcessForExec.id, {
+      criteria: updatedCriteria,
+      overallScore: newScore,
+    });
+  };
+
+  // SIPOC handlers (Unlimited & Fully Editable)
+  const handleAddSipocItem = () => {
+    if (!selectedProcessForExec) return;
+    const currentSipoc = selectedProcessForExec.sipocItems || [];
+    const newItem: SipocItem = {
+      id: `sipoc-${Date.now()}-${currentSipoc.length + 1}`,
+      processName: 'Nova Etapa / Processo SIPOC',
+      suppliers: 'Fornecedores internos / externos',
+      inputs: 'Entradas (Matéria-prima, dados, requisição)',
+      processSteps: 'Passo 1 -> Passo 2 -> Passo 3',
+      outputs: 'Saída (Produto, relatório, serviço)',
+      customers: 'Clientes (Usuário final, próxima etapa)',
+      requirements: 'Especificações técnicas ou critérios de aceitação',
+    };
+    const updatedSipoc = [...currentSipoc, newItem];
+    setSelectedProcessForExec(prev => prev ? { ...prev, sipocItems: updatedSipoc } : null);
+    updateModularProcess(selectedProcessForExec.id, { sipocItems: updatedSipoc });
+  };
+
+  const handleUpdateSipocItem = (sipocId: string, field: keyof SipocItem, value: string) => {
+    if (!selectedProcessForExec) return;
+    const currentSipoc = selectedProcessForExec.sipocItems || [];
+    const updatedSipoc = currentSipoc.map(item => item.id === sipocId ? { ...item, [field]: value } : item);
+    setSelectedProcessForExec(prev => prev ? { ...prev, sipocItems: updatedSipoc } : null);
+    updateModularProcess(selectedProcessForExec.id, { sipocItems: updatedSipoc });
+  };
+
+  const handleRemoveSipocItem = (sipocId: string) => {
+    if (!selectedProcessForExec) return;
+    const currentSipoc = selectedProcessForExec.sipocItems || [];
+    const updatedSipoc = currentSipoc.filter(item => item.id !== sipocId);
+    setSelectedProcessForExec(prev => prev ? { ...prev, sipocItems: updatedSipoc } : null);
+    updateModularProcess(selectedProcessForExec.id, { sipocItems: updatedSipoc });
+  };
+
+  // Action Plan handlers & state for Modular Process execution modal (5W2H, Ishikawa, etc.)
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  const [planWorkspaceTab, setPlanWorkspaceTab] = useState<'geral' | 'contencao' | 'causa-raiz' | '5w2h' | 'eficacia'>('geral');
+
+  const handleAddActionPlan = () => {
+    if (!selectedProcessForExec) return;
+    const currentPlans = selectedProcessForExec.actionPlans || [];
+    const newPlan: ActionPlan = {
+      id: `ap-${Date.now()}-${currentPlans.length + 1}`,
+      title: `Plano de Ação / NC #${currentPlans.length + 1}`,
+      description: 'Descrição detalhada do desvio ou oportunidade identificada durante a avaliação modular.',
+      responsible: selectedProcessForExec.responsible || 'Responsável Técnico',
+      deadline: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      status: 'Aberto',
+      priority: 'Alta',
+      correctiveAction: 'Definir ação corretiva...',
+      ncRequirement: 'Requisito do Processo Modular',
+      method5W2H: {
+        what: 'Implementar correção no processo',
+        why: 'Eliminar causa raiz identificada',
+        where: selectedProcessForExec.clientOrUnit,
+        whenDeadline: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+        whoResponsible: selectedProcessForExec.responsible,
+        howMethod: 'Padronização de procedimento e treinamento',
+        howMuchCost: 'R$ 0,00',
+      },
+      ishikawa: {
+        method: '',
+        machine: '',
+        measurement: '',
+        environment: '',
+        manpower: '',
+        material: '',
+        primaryRootCause: '',
+      },
+      fiveWhys: ['', '', '', '', ''],
+    };
+    const updatedPlans = [...currentPlans, newPlan];
+    setSelectedProcessForExec(prev => prev ? { ...prev, actionPlans: updatedPlans } : null);
+    updateModularProcess(selectedProcessForExec.id, { actionPlans: updatedPlans });
+    setActivePlanId(newPlan.id);
+  };
+
+  const handleUpdateActionPlan = (planId: string, updates: Partial<ActionPlan>) => {
+    if (!selectedProcessForExec) return;
+    const currentPlans = selectedProcessForExec.actionPlans || [];
+    const updatedPlans = currentPlans.map(p => p.id === planId ? { ...p, ...updates } : p);
+    setSelectedProcessForExec(prev => prev ? { ...prev, actionPlans: updatedPlans } : null);
+    updateModularProcess(selectedProcessForExec.id, { actionPlans: updatedPlans });
+  };
+
+  const handleRemoveActionPlan = (planId: string) => {
+    if (!selectedProcessForExec) return;
+    const currentPlans = selectedProcessForExec.actionPlans || [];
+    const updatedPlans = currentPlans.filter(p => p.id !== planId);
+    setSelectedProcessForExec(prev => prev ? { ...prev, actionPlans: updatedPlans } : null);
+    updateModularProcess(selectedProcessForExec.id, { actionPlans: updatedPlans });
+    if (activePlanId === planId) {
+      setActivePlanId(updatedPlans[0]?.id || null);
+    }
   };
 
   return (
@@ -1203,70 +1420,161 @@ export const ModularProcessView: React.FC<ModularProcessViewProps> = ({
               </div>
             </div>
 
-            {/* Criteria Evaluation List */}
-            <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-200">
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
-                <span className="text-slate-300">
-                  Régua: <strong>{METHOD_LABELS[selectedProcessForExec.evaluationMethod]}</strong>
-                </span>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                  {selectedProcessForExec.classificationResult}
-                </span>
-              </div>
+            {/* Tab Bar: Critérios vs SIPOC */}
+            <div className="px-6 py-2.5 bg-slate-950/80 border-b border-slate-800 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setExecTab('criteria')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                  execTab === 'criteria'
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <CheckSquare className="w-4 h-4" />
+                <span>Critérios & Requisitos ({selectedProcessForExec.criteria.length})</span>
+              </button>
 
-              {selectedProcessForExec.criteria.map((c, idx) => (
+              <button
+                type="button"
+                onClick={() => setExecTab('sipoc')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                  execTab === 'sipoc'
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>Mapeamento SIPOC / DMAIC ({selectedProcessForExec.sipocItems?.length || 0})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setExecTab('action_plans')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                  execTab === 'action_plans'
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                }`}
+              >
+                <CheckSquare className="w-4 h-4" />
+                <span>Planos de Ação & NCs ({selectedProcessForExec.actionPlans?.length || 0})</span>
+              </button>
+            </div>
+
+            {/* Tab 1: Criteria & Questions Evaluation */}
+            {execTab === 'criteria' && (
+              <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-200">
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <span className="text-slate-300">
+                    Régua: <strong>{METHOD_LABELS[selectedProcessForExec.evaluationMethod]}</strong>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                      {selectedProcessForExec.classificationResult}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAddCriterionInExecution}
+                      className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold flex items-center gap-1 cursor-pointer shadow-sm shadow-orange-500/20"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Incluir Requisito / Pergunta</span>
+                    </button>
+                  </div>
+                </div>
+
+                {selectedProcessForExec.criteria.map((c, idx) => (
                 <div
                   key={c.id}
-                  className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-3"
+                  className="p-4 bg-slate-950/90 rounded-2xl border border-slate-800 space-y-3 relative group"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-orange-400 font-bold">{c.code || `#${idx + 1}`}</span>
-                        <h4 className="text-sm font-bold text-white">{c.title}</h4>
-                        {c.criticality && (
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                            c.criticality === 'Crítica'
-                              ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                              : 'bg-slate-800 text-slate-300'
-                          }`}>
-                            {c.criticality}
-                          </span>
-                        )}
+                  {/* Top row: Code, Editable Title & Criticality & Delete */}
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-orange-400 font-bold px-2 py-0.5 bg-orange-500/10 rounded border border-orange-500/30">
+                          {c.code || `REQ-${idx + 1}`}
+                        </span>
+                        
+                        <input
+                          type="text"
+                          value={c.title}
+                          onChange={(e) => handleEditCriterionField(c.id, 'title', e.target.value)}
+                          placeholder="Título do critério ou pergunta..."
+                          className="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-white font-bold text-xs flex-1 min-w-[200px]"
+                        />
+
+                        <select
+                          value={c.criticality || 'Média'}
+                          onChange={(e) => handleEditCriterionField(c.id, 'criticality', e.target.value)}
+                          className="px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-slate-300 text-[11px]"
+                        >
+                          <option value="Baixa">Baixa</option>
+                          <option value="Média">Média</option>
+                          <option value="Alta">Alta</option>
+                          <option value="Crítica">Crítica</option>
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCriterionInExecution(c.id)}
+                          className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"
+                          title="Remover Requisito"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1">{c.description}</p>
+
+                      {/* Description & Pillar edit */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          value={c.description || ''}
+                          onChange={(e) => handleEditCriterionField(c.id, 'description', e.target.value)}
+                          placeholder="Descrição detalhada do requisito ou diretriz..."
+                          className="md:col-span-2 px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 text-xs"
+                        />
+                        <input
+                          type="text"
+                          value={c.categoryOrPillar || ''}
+                          onChange={(e) => handleEditCriterionField(c.id, 'categoryOrPillar', e.target.value)}
+                          placeholder="Pilar / Área (ex: Técnico, Qualidade)"
+                          className="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg text-slate-300 text-xs"
+                        />
+                      </div>
                     </div>
 
                     {/* Dynamic Rating Selector based on evaluationMethod */}
-                    <div className="shrink-0">
+                    <div className="shrink-0 pt-1 md:pt-0">
                       {selectedProcessForExec.evaluationMethod === 'three_levels' && (
-                        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700">
+                        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-700">
                           <button
                             type="button"
                             onClick={() => handleUpdateCriterionValue(c.id, 'Atende', 'Atende', 100)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                               c.value === 'Atende' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
                             }`}
                           >
-                            Atende (100%)
+                            Atende (100)
                           </button>
                           <button
                             type="button"
                             onClick={() => handleUpdateCriterionValue(c.id, 'Atende Parcialmente', 'Atende Parcialmente', 65)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                               c.value === 'Atende Parcialmente' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
                             }`}
                           >
-                            Parcial (65%)
+                            Parcial (65)
                           </button>
                           <button
                             type="button"
                             onClick={() => handleUpdateCriterionValue(c.id, 'Não Atende', 'Não Atende', 0)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                               c.value === 'Não Atende' ? 'bg-rose-600 text-white' : 'text-slate-400 hover:text-white'
                             }`}
                           >
-                            Não Atende (0%)
+                            Não Atende (0)
                           </button>
                         </div>
                       )}
@@ -1301,7 +1609,7 @@ export const ModularProcessView: React.FC<ModularProcessViewProps> = ({
                               key={score}
                               type="button"
                               onClick={() => handleUpdateCriterionValue(c.id, score, `Nota ${score}`, score * 20)}
-                              className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                              className={`w-6 h-6 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center ${
                                 c.value === score ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
                               }`}
                             >
@@ -1318,22 +1626,22 @@ export const ModularProcessView: React.FC<ModularProcessViewProps> = ({
                               key={level}
                               type="button"
                               onClick={() => handleUpdateCriterionValue(c.id, level, `Nível ${level}`, level * 20)}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                                 c.value === level ? 'bg-orange-500 text-white shadow' : 'text-slate-400 hover:text-white'
                               }`}
                             >
-                              Nível {level}
+                              Nív {level}
                             </button>
                           ))}
                         </div>
                       )}
 
                       {selectedProcessForExec.evaluationMethod === 'approval' && (
-                        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700">
+                        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-700">
                           <button
                             type="button"
                             onClick={() => handleUpdateCriterionValue(c.id, 'Aprovado', 'Aprovado', 100)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                               c.value === 'Aprovado' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
                             }`}
                           >
@@ -1342,7 +1650,7 @@ export const ModularProcessView: React.FC<ModularProcessViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleUpdateCriterionValue(c.id, 'Ressalvas', 'Ressalvas', 70)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                               c.value === 'Ressalvas' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
                             }`}
                           >
@@ -1351,7 +1659,7 @@ export const ModularProcessView: React.FC<ModularProcessViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleUpdateCriterionValue(c.id, 'Reprovado', 'Reprovado', 0)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                               c.value === 'Reprovado' ? 'bg-rose-600 text-white' : 'text-slate-400 hover:text-white'
                             }`}
                           >
@@ -1362,19 +1670,611 @@ export const ModularProcessView: React.FC<ModularProcessViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Evidence Notes Input */}
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Registrar evidências objetivas, laudos, relatórios ou observações técnicas..."
-                      value={c.evidenceNotes || ''}
-                      onChange={(e) => handleUpdateCriterionNotes(c.id, e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                    />
+                  {/* Evidence Notes & Attach Evidence Tool */}
+                  <div className="pt-2 border-t border-slate-800/80 flex flex-col sm:flex-row items-center gap-2">
+                    <div className="relative flex-1 w-full">
+                      <input
+                        type="text"
+                        placeholder="Observações técnicas ou evidência objetiva..."
+                        value={c.evidenceNotes || ''}
+                        onChange={(e) => handleUpdateCriterionNotes(c.id, e.target.value)}
+                        className="w-full px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAttachEvidenceToCriterion(c.id)}
+                      className="shrink-0 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-orange-400 border border-slate-700 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                      title="Anexar documento ou evidência"
+                    >
+                      <Paperclip className="w-3.5 h-3.5" />
+                      <span>Anexar Evidência {c.attachments && c.attachments.length > 0 ? `(${c.attachments.length})` : ''}</span>
+                    </button>
                   </div>
+
+                  {/* Attached Files List */}
+                  {c.attachments && c.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {c.attachments.map((att, attIdx) => (
+                        <span key={attIdx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-500/10 text-orange-300 border border-orange-500/30 text-[10px] font-mono">
+                          <FileText className="w-3 h-3" />
+                          <span>{att.name}</span>
+                          <span className="text-slate-400">({att.size})</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
+            )}
+
+            {/* Tab 2: SIPOC Tool (Six Sigma / DMAIC High-Level Mapping) */}
+            {execTab === 'sipoc' && (
+              <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-200">
+                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-orange-400" />
+                        <span>Mapeamento de Processo SIPOC (Six Sigma / DMAIC)</span>
+                      </h4>
+                      <p className="text-slate-400 text-xs mt-0.5">
+                        Mapeie fornecedores (S), entradas (I), processo (P), saídas (O) e clientes (C). 100% editável e sem limite de processos.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddSipocItem}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-orange-500/20 shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Adicionar Processo SIPOC</span>
+                    </button>
+                  </div>
+                </div>
+
+                {(!selectedProcessForExec.sipocItems || selectedProcessForExec.sipocItems.length === 0) ? (
+                  <div className="text-center py-12 bg-slate-950/50 rounded-2xl border border-slate-800">
+                    <Layers className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-400 font-medium">Nenhum processo SIPOC mapeado ainda.</p>
+                    <p className="text-slate-500 text-[11px] mt-1">Clique no botão acima para criar o seu primeiro mapeamento SIPOC.</p>
+                    <button
+                      type="button"
+                      onClick={handleAddSipocItem}
+                      className="mt-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Criar Primeiro SIPOC</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {selectedProcessForExec.sipocItems.map((sipoc, sIdx) => (
+                      <div key={sipoc.id} className="p-5 bg-slate-950/90 rounded-2xl border border-slate-800 space-y-4 relative group">
+                        {/* Top bar of sipoc item */}
+                        <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="font-mono text-orange-400 font-bold px-2.5 py-1 bg-orange-500/10 rounded-lg border border-orange-500/30">
+                              SIPOC #{sIdx + 1}
+                            </span>
+                            <input
+                              type="text"
+                              value={sipoc.processName}
+                              onChange={(e) => handleUpdateSipocItem(sipoc.id, 'processName', e.target.value)}
+                              placeholder="Nome da Etapa ou Processo..."
+                              className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold text-xs flex-1 max-w-md"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSipocItem(sipoc.id)}
+                            className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 cursor-pointer transition-colors"
+                            title="Remover este processo SIPOC"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* 5 SIPOC Columns Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                          {/* Suppliers */}
+                          <div className="space-y-1.5 p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-orange-400 block">
+                              S - Fornecedores
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={sipoc.suppliers}
+                              onChange={(e) => handleUpdateSipocItem(sipoc.id, 'suppliers', e.target.value)}
+                              placeholder="Quem fornece as entradas..."
+                              className="w-full px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-orange-500 resize-y"
+                            />
+                          </div>
+
+                          {/* Inputs */}
+                          <div className="space-y-1.5 p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">
+                              I - Entradas
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={sipoc.inputs}
+                              onChange={(e) => handleUpdateSipocItem(sipoc.id, 'inputs', e.target.value)}
+                              placeholder="Materiais, dados, insumos..."
+                              className="w-full px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-orange-500 resize-y"
+                            />
+                          </div>
+
+                          {/* Process */}
+                          <div className="space-y-1.5 p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                              P - Processo (Etapas)
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={sipoc.processSteps}
+                              onChange={(e) => handleUpdateSipocItem(sipoc.id, 'processSteps', e.target.value)}
+                              placeholder="Passos de alta nível..."
+                              className="w-full px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-orange-500 resize-y"
+                            />
+                          </div>
+
+                          {/* Outputs */}
+                          <div className="space-y-1.5 p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-blue-400 block">
+                              O - Saídas
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={sipoc.outputs}
+                              onChange={(e) => handleUpdateSipocItem(sipoc.id, 'outputs', e.target.value)}
+                              placeholder="Produto, serviço, relatório..."
+                              className="w-full px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-orange-500 resize-y"
+                            />
+                          </div>
+
+                          {/* Customers */}
+                          <div className="space-y-1.5 p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-purple-400 block">
+                              C - Clientes
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={sipoc.customers}
+                              onChange={(e) => handleUpdateSipocItem(sipoc.id, 'customers', e.target.value)}
+                              placeholder="Quem recebe a saída..."
+                              className="w-full px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-orange-500 resize-y"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Requirements & Notes */}
+                        <div className="pt-2 border-t border-slate-800/80">
+                          <input
+                            type="text"
+                            value={sipoc.requirements || ''}
+                            onChange={(e) => handleUpdateSipocItem(sipoc.id, 'requirements', e.target.value)}
+                            placeholder="Requisitos críticos de qualidade ou especificações das saídas..."
+                            className="w-full px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 3: Action Plans & NCs (5W2H, Ishikawa, Contenção, Eficácia) */}
+            {execTab === 'action_plans' && (
+              <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-200">
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                  <span className="text-slate-300">
+                    Gerenciamento de Planos de Ação e Não Conformidades (Formato Padrão ISO / Qualidade)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAddActionPlan}
+                    className="px-3.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold flex items-center gap-1.5 cursor-pointer shadow-sm shadow-orange-500/20"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Novo Plano de Ação / NC</span>
+                  </button>
+                </div>
+
+                {(!selectedProcessForExec.actionPlans || selectedProcessForExec.actionPlans.length === 0) ? (
+                  <div className="text-center py-12 bg-slate-950/50 rounded-2xl border border-slate-800/80 space-y-3">
+                    <CheckSquare className="w-10 h-10 text-orange-400 mx-auto opacity-60" />
+                    <p className="text-sm font-bold text-white">Nenhum Plano de Ação ou NC cadastrado neste processo</p>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      Crie planos de ação estruturados com Metodologia 5W2H, Diagrama de Ishikawa (6M), 5 Porquês e Verificação de Eficácia.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAddActionPlan}
+                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-xs inline-flex items-center gap-2 cursor-pointer shadow-md shadow-orange-500/25"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Criar Primeiro Plano de Ação</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Action Plan selector */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+                      {selectedProcessForExec.actionPlans.map((plan) => {
+                        const isSelected = (activePlanId || selectedProcessForExec.actionPlans![0].id) === plan.id;
+                        return (
+                          <button
+                            key={plan.id}
+                            type="button"
+                            onClick={() => setActivePlanId(plan.id)}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-orange-500/20 text-orange-300 border-orange-500/50 shadow-sm'
+                                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                            }`}
+                          >
+                            <span>{plan.title}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
+                              plan.status === 'Concluído' ? 'bg-emerald-950 text-emerald-300' : 'bg-orange-950 text-orange-300'
+                            }`}>
+                              {plan.status}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Active Plan Workspace */}
+                    {(() => {
+                      const currentPlan = selectedProcessForExec.actionPlans.find(p => p.id === (activePlanId || selectedProcessForExec.actionPlans![0].id)) || selectedProcessForExec.actionPlans[0];
+                      if (!currentPlan) return null;
+
+                      return (
+                        <div className="bg-slate-950 rounded-2xl border border-slate-800 p-5 space-y-5">
+                          {/* Top Plan Header & Status */}
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                            <div className="space-y-1 flex-1">
+                              <input
+                                type="text"
+                                value={currentPlan.title}
+                                onChange={(e) => handleUpdateActionPlan(currentPlan.id, { title: e.target.value })}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold"
+                              />
+                              <p className="text-[11px] text-slate-400">
+                                Responsável: <input type="text" value={currentPlan.responsible} onChange={(e) => handleUpdateActionPlan(currentPlan.id, { responsible: e.target.value })} className="bg-slate-900 border border-slate-700 rounded px-1 text-white inline-block w-32" /> • Prazo: <input type="date" value={currentPlan.deadline} onChange={(e) => handleUpdateActionPlan(currentPlan.id, { deadline: e.target.value })} className="bg-slate-900 border border-slate-700 rounded px-1 text-white inline-block font-mono" />
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={currentPlan.status}
+                                onChange={(e) => handleUpdateActionPlan(currentPlan.id, { status: e.target.value as ActionPlanStatus })}
+                                className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-semibold focus:outline-none focus:border-orange-500"
+                              >
+                                <option value="Aberto">Aberto</option>
+                                <option value="Pendente">Pendente</option>
+                                <option value="Em Andamento">Em Andamento</option>
+                                <option value="Aguardando Verificação">Aguardando Verificação</option>
+                                <option value="Atrasado">Atrasado</option>
+                                <option value="Concluído">Concluído</option>
+                                <option value="Ineficaz">Ineficaz (Reaberto)</option>
+                              </select>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveActionPlan(currentPlan.id)}
+                                className="p-1.5 rounded-xl text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                                title="Excluir este plano de ação"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sub-Tabs for Action Plan */}
+                          <div className="border-b border-slate-800 flex items-center gap-1 overflow-x-auto scrollbar-none bg-slate-900/50 rounded-xl p-1">
+                            {[
+                              { id: 'geral' as const, label: 'Identificação & Dados', icon: FileText },
+                              { id: 'contencao' as const, label: 'Contenção Imediata', icon: ShieldCheck },
+                              { id: 'causa-raiz' as const, label: 'Causa-Raiz (Ishikawa & 5 Porquês)', icon: HelpCircle },
+                              { id: '5w2h' as const, label: 'Plano 5W2H', icon: CheckSquare },
+                              { id: 'eficacia' as const, label: 'Verificação de Eficácia', icon: CheckCircle2 },
+                            ].map((tab) => {
+                              const Icon = tab.icon;
+                              const isActive = planWorkspaceTab === tab.id;
+                              return (
+                                <button
+                                  key={tab.id}
+                                  type="button"
+                                  onClick={() => setPlanWorkspaceTab(tab.id)}
+                                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs whitespace-nowrap transition-all cursor-pointer ${
+                                    isActive
+                                      ? 'bg-orange-500 text-white shadow'
+                                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                                  }`}
+                                >
+                                  <Icon className="w-3.5 h-3.5" />
+                                  <span>{tab.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Sub-Tab Content */}
+                          <div className="space-y-4 pt-2">
+                            {planWorkspaceTab === 'geral' && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                                  <label className="text-[10px] text-slate-400 uppercase font-semibold block">Descrição da Não Conformidade / Desvio</label>
+                                  <textarea
+                                    rows={3}
+                                    value={currentPlan.description}
+                                    onChange={(e) => handleUpdateActionPlan(currentPlan.id, { description: e.target.value })}
+                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-orange-500"
+                                  />
+                                </div>
+                                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                                  <label className="text-[10px] text-slate-400 uppercase font-semibold block">Requisito & Contexto</label>
+                                  <input
+                                    type="text"
+                                    value={currentPlan.ncRequirement || ''}
+                                    onChange={(e) => handleUpdateActionPlan(currentPlan.id, { ncRequirement: e.target.value })}
+                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-orange-500 mb-2"
+                                  />
+                                  <div className="flex justify-between text-xs text-slate-400">
+                                    <span>Prioridade:</span>
+                                    <select
+                                      value={currentPlan.priority}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, { priority: e.target.value as any })}
+                                      className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-white"
+                                    >
+                                      <option value="Baixa">Baixa</option>
+                                      <option value="Média">Média</option>
+                                      <option value="Alta">Alta</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {planWorkspaceTab === 'contencao' && (
+                              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                                  Ação de Contenção Imediata (Disposição Provisória)
+                                </h4>
+                                <p className="text-xs text-slate-400">Medida emergencial adotada para bloquear o desvio e isolar riscos.</p>
+                                <textarea
+                                  rows={3}
+                                  value={currentPlan.containmentAction || ''}
+                                  onChange={(e) => handleUpdateActionPlan(currentPlan.id, { containmentAction: e.target.value })}
+                                  placeholder="Descreva a contenção (ex: Bloqueio imediato do lote, inspeção 100%)..."
+                                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-orange-500"
+                                />
+                              </div>
+                            )}
+
+                            {planWorkspaceTab === 'causa-raiz' && (
+                              <div className="space-y-4">
+                                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                                  <h4 className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                                    Diagrama de Ishikawa (Espinha de Peixe / 6M)
+                                  </h4>
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    {[
+                                      { label: '1. Método', key: 'method' },
+                                      { label: '2. Máquina', key: 'machine' },
+                                      { label: '3. Medida', key: 'measurement' },
+                                      { label: '4. Meio Ambiente', key: 'environment' },
+                                      { label: '5. Mão de Obra', key: 'manpower' },
+                                      { label: '6. Material', key: 'material' },
+                                    ].map((m) => (
+                                      <div key={m.key} className="space-y-1 p-2 bg-slate-950 rounded-lg border border-slate-800">
+                                        <span className="text-[11px] text-slate-400 font-semibold">{m.label}</span>
+                                        <input
+                                          type="text"
+                                          value={(currentPlan.ishikawa as any)?.[m.key] || ''}
+                                          onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                            ishikawa: {
+                                              ...(currentPlan.ishikawa || { method: '', machine: '', measurement: '', environment: '', manpower: '', material: '', primaryRootCause: '' }),
+                                              [m.key]: e.target.value
+                                            }
+                                          })}
+                                          placeholder="Causa potencial..."
+                                          className="w-full px-2 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-white"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div>
+                                    <label className="text-slate-400 block text-xs font-bold mb-1">Causa Raiz Primária Validada</label>
+                                    <input
+                                      type="text"
+                                      value={currentPlan.ishikawa?.primaryRootCause || ''}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        ishikawa: {
+                                          ...(currentPlan.ishikawa || { method: '', machine: '', measurement: '', environment: '', manpower: '', material: '', primaryRootCause: '' }),
+                                          primaryRootCause: e.target.value
+                                        }
+                                      })}
+                                      placeholder="Conclusão fundamental da análise..."
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                                  <h4 className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                                    Técnica dos 5 Porquês (Why-Why Analysis)
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {[0, 1, 2, 3, 4].map((idx) => (
+                                      <div key={idx} className="flex items-center gap-2">
+                                        <span className="w-16 font-mono font-bold text-orange-400 text-xs">
+                                          {idx + 1}º Por quê?
+                                        </span>
+                                        <input
+                                          type="text"
+                                          value={currentPlan.fiveWhys?.[idx] || ''}
+                                          onChange={(e) => {
+                                            const updated = [...(currentPlan.fiveWhys || ['', '', '', '', ''])];
+                                            updated[idx] = e.target.value;
+                                            handleUpdateActionPlan(currentPlan.id, { fiveWhys: updated });
+                                          }}
+                                          placeholder={idx === 4 ? 'Causa fundamental (5º Porquê)...' : `Motivo ${idx + 1}...`}
+                                          className="flex-1 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white"
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {planWorkspaceTab === '5w2h' && (
+                              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                                  Plano de Ação Corretiva - Metodologia 5W2H
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                  <div>
+                                    <label className="text-slate-400 font-semibold block mb-1">What (O que será feito?)</label>
+                                    <input
+                                      type="text"
+                                      value={currentPlan.method5W2H?.what || ''}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        method5W2H: { ...(currentPlan.method5W2H || { what: '', why: '', where: '', whenDeadline: '', whoResponsible: '', howMethod: '', howMuchCost: '' }), what: e.target.value }
+                                      })}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-slate-400 font-semibold block mb-1">Why (Por que será feito?)</label>
+                                    <input
+                                      type="text"
+                                      value={currentPlan.method5W2H?.why || ''}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        method5W2H: { ...(currentPlan.method5W2H || { what: '', why: '', where: '', whenDeadline: '', whoResponsible: '', howMethod: '', howMuchCost: '' }), why: e.target.value }
+                                      })}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-slate-400 font-semibold block mb-1">Where (Onde será feito?)</label>
+                                    <input
+                                      type="text"
+                                      value={currentPlan.method5W2H?.where || ''}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        method5W2H: { ...(currentPlan.method5W2H || { what: '', why: '', where: '', whenDeadline: '', whoResponsible: '', howMethod: '', howMuchCost: '' }), where: e.target.value }
+                                      })}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-slate-400 font-semibold block mb-1">When (Quando / Prazo?)</label>
+                                    <input
+                                      type="date"
+                                      value={currentPlan.method5W2H?.whenDeadline || currentPlan.deadline}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        method5W2H: { ...(currentPlan.method5W2H || { what: '', why: '', where: '', whenDeadline: '', whoResponsible: '', howMethod: '', howMuchCost: '' }), whenDeadline: e.target.value }
+                                      })}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-slate-400 font-semibold block mb-1">Who (Quem é o responsável?)</label>
+                                    <input
+                                      type="text"
+                                      value={currentPlan.method5W2H?.whoResponsible || currentPlan.responsible}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        method5W2H: { ...(currentPlan.method5W2H || { what: '', why: '', where: '', whenDeadline: '', whoResponsible: '', howMethod: '', howMuchCost: '' }), whoResponsible: e.target.value }
+                                      })}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-slate-400 font-semibold block mb-1">How Much (Custo estimado?)</label>
+                                    <input
+                                      type="text"
+                                      value={currentPlan.method5W2H?.howMuchCost || ''}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        method5W2H: { ...(currentPlan.method5W2H || { what: '', why: '', where: '', whenDeadline: '', whoResponsible: '', howMethod: '', howMuchCost: '' }), howMuchCost: e.target.value }
+                                      })}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-mono"
+                                    />
+                                  </div>
+                                  <div className="sm:col-span-2">
+                                    <label className="text-slate-400 font-semibold block mb-1">How (Como será feito / Método?)</label>
+                                    <textarea
+                                      rows={2}
+                                      value={currentPlan.method5W2H?.howMethod || ''}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        method5W2H: { ...(currentPlan.method5W2H || { what: '', why: '', where: '', whenDeadline: '', whoResponsible: '', howMethod: '', howMuchCost: '' }), howMethod: e.target.value }
+                                      })}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {planWorkspaceTab === 'eficacia' && (
+                              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                                  Verificação Formal de Eficácia
+                                </h4>
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-4">
+                                    <label className="text-slate-400">Ação foi eficaz?</label>
+                                    <select
+                                      value={currentPlan.effectivenessVerification?.isEffective ? 'Sim' : 'Não'}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        effectivenessVerification: {
+                                          verifiedBy: currentPlan.responsible,
+                                          verificationDate: new Date().toISOString().split('T')[0],
+                                          isEffective: e.target.value === 'Sim',
+                                          notes: currentPlan.effectivenessVerification?.notes || '',
+                                        }
+                                      })}
+                                      className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-white"
+                                    >
+                                      <option value="Sim">Sim (Eficaz)</option>
+                                      <option value="Não">Não (Ineficaz / Reabrir)</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="text-slate-400 block mb-1">Observações da Verificação</label>
+                                    <textarea
+                                      rows={3}
+                                      value={currentPlan.effectivenessVerification?.notes || ''}
+                                      onChange={(e) => handleUpdateActionPlan(currentPlan.id, {
+                                        effectivenessVerification: {
+                                          verifiedBy: currentPlan.responsible,
+                                          verificationDate: new Date().toISOString().split('T')[0],
+                                          isEffective: currentPlan.effectivenessVerification?.isEffective ?? true,
+                                          notes: e.target.value,
+                                        }
+                                      })}
+                                      placeholder="Descreva as evidências verificadas..."
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-xs"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Footer */}
             <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">

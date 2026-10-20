@@ -11,13 +11,15 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  X
+  X,
+  ChevronRight
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { StatCard } from '../common/StatCard';
 import { EmptyState } from '../common/EmptyState';
 import { Supplier, SupplierStatus, CriticalityLevel } from '../../types';
 import { STANDARD_NORMS } from '../../data/initialData';
+import { SupplierProfileModal } from './SupplierProfileModal';
 
 interface SuppliersViewProps {
   onOpenMap: () => void;
@@ -30,6 +32,7 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({ onOpenMap }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -327,9 +330,18 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({ onOpenMap }) => {
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="text-slate-500 text-[10px]">Cadastrado em {s.createdAt}</span>
                 <button
-                  onClick={() => deleteSupplier(s.id)}
+                  onClick={() => setSelectedSupplierId(s.id)}
+                  className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-bold transition-colors"
+                >
+                  <span>Ver Perfil Completo</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteSupplier(s.id);
+                  }}
                   className="text-slate-400 hover:text-rose-400 text-[11px] font-medium transition-colors"
                 >
                   Excluir
@@ -355,7 +367,11 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({ onOpenMap }) => {
               </thead>
               <tbody className="divide-y divide-slate-800/80">
                 {filteredSuppliers.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-800/50 transition-colors">
+                  <tr
+                    key={s.id}
+                    onClick={() => setSelectedSupplierId(s.id)}
+                    className="hover:bg-slate-800/50 transition-colors cursor-pointer"
+                  >
                     <td className="py-3.5 px-4 font-bold text-white">
                       {s.tradeName}
                       <span className="block text-[10px] text-slate-400 font-normal">
@@ -387,13 +403,21 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({ onOpenMap }) => {
                         {s.status}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => deleteSupplier(s.id)}
-                        className="text-slate-400 hover:text-rose-400 font-semibold"
-                      >
-                        Remover
-                      </button>
+                    <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setSelectedSupplierId(s.id)}
+                          className="text-blue-400 hover:text-blue-300 font-bold"
+                        >
+                          Perfil
+                        </button>
+                        <button
+                          onClick={() => deleteSupplier(s.id)}
+                          className="text-slate-400 hover:text-rose-400 font-semibold"
+                        >
+                          Remover
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -402,6 +426,13 @@ export const SuppliersView: React.FC<SuppliersViewProps> = ({ onOpenMap }) => {
           </div>
         </div>
       )}
+
+      {/* Supplier Profile Modal */}
+      <SupplierProfileModal
+        supplierId={selectedSupplierId || ''}
+        isOpen={Boolean(selectedSupplierId)}
+        onClose={() => setSelectedSupplierId(null)}
+      />
 
       {/* Modal: + Novo Fornecedor */}
       {isModalOpen && (
