@@ -245,18 +245,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const stored = getStored('landing_content', DEFAULT_LANDING_CONTENT);
     return {
       ...stored,
-      badgeText:
-        stored.badgeText && stored.badgeText.toLowerCase().includes('conectando')
-          ? stored.badgeText
-          : 'Conectando confiança à conformidade',
-      heroTitle:
-        stored.heroTitle && stored.heroTitle.startsWith('Excelência em Certificação')
-          ? stored.heroTitle
-          : 'Excelência em Certificação, Auditorias & Qualificação de Cadeias Críticas',
-      heroSubtitle:
-        stored.heroSubtitle && stored.heroSubtitle.startsWith('Conectamos corporações globais')
-          ? stored.heroSubtitle
-          : 'Conectamos corporações globais, auditores líderes IRCA e fornecedores estratégicos com o mais elevado rigor técnico, rastreabilidade digital e integridade de conformidade.',
+      badgeText: 'CERTIFICAÇÃO · AUDITORIA · CONFORMIDADE',
+      heroTitle: 'Conformidade que gera confiança. Inteligência que impulsiona resultados.',
+      heroSubtitle: 'A Nexus Veritas integra conhecimento técnico, auditorias, sistemas de gestão e tecnologia para ajudar organizações a fortalecer seus processos, gerenciar riscos, avaliar fornecedores e evoluir continuamente.',
     };
   });
   const [partners, setPartners] = useState<Partner[]>(() => getStored('partners', DEFAULT_PARTNERS));

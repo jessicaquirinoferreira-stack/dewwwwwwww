@@ -19,9 +19,9 @@ import {
 } from '../types';
 
 export const DEFAULT_LANDING_CONTENT: LandingContent = {
-  badgeText: 'Conectando confiança à conformidade',
-  heroTitle: 'Excelência em Certificação, Auditorias & Qualificação de Cadeias Críticas',
-  heroSubtitle: 'Conectamos corporações globais, auditores líderes IRCA e fornecedores estratégicos com o mais elevado rigor técnico, rastreabilidade digital e integridade de conformidade.',
+  badgeText: 'CERTIFICAÇÃO · AUDITORIA · CONFORMIDADE',
+  heroTitle: 'Conformidade que gera confiança. Inteligência que impulsiona resultados.',
+  heroSubtitle: 'A Nexus Veritas integra conhecimento técnico, auditorias, sistemas de gestão e tecnologia para ajudar organizações a fortalecer seus processos, gerenciar riscos, avaliar fornecedores e evoluir continuamente.',
   primaryCtaText: 'Acessar Plataforma Corporativa',
   secondaryCtaText: 'Credenciamento de Empresas',
   statsSuppliers: '+18.400 Empresas Monitoradas',

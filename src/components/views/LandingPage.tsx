@@ -173,15 +173,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   // Headline words for fluid word-by-word reveal
   const titleWords = [
-    { text: 'Excelência', highlight: false },
-    { text: 'em', highlight: false },
-    { text: 'Certificação,', highlight: false },
-    { text: 'Auditorias', highlight: true },
-    { text: '&', highlight: true },
-    { text: 'Qualificação', highlight: true },
-    { text: 'de', highlight: true },
-    { text: 'Cadeias', highlight: true },
-    { text: 'Críticas', highlight: true },
+    { text: 'Conformidade', highlight: false },
+    { text: 'que', highlight: false },
+    { text: 'gera', highlight: false },
+    { text: 'confiança.', highlight: false },
+    { text: 'Inteligência', highlight: true },
+    { text: 'que', highlight: true },
+    { text: 'impulsiona', highlight: true },
+    { text: 'resultados.', highlight: true },
   ];
 
   // Filter partners
@@ -489,19 +488,37 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {/* Left Column: Headline with Word-by-Word Reveal, Subtitle, Sheen CTAs & Animated Count-up Stats */}
             <div className="lg:col-span-7 text-left">
               {/* Badge: Conectando confiança à conformidade */}
-              <div
-                className={`inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold tracking-wider mb-6 backdrop-blur-md shadow-xs ${
-                  theme === 'light'
-                    ? 'bg-orange-50/80 border-orange-200 text-orange-700'
-                    : 'bg-[#111827]/90 border-orange-500/30 text-orange-400'
-                }`}
-              >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-                </span>
-                <Shield className="w-3.5 h-3.5 text-orange-500" />
-                <span>{landingContent.badgeText || 'Conectando confiança à conformidade'}</span>
+              <div className="space-y-3 mb-6">
+                <div
+                  className={`inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold tracking-wider backdrop-blur-md shadow-xs ${
+                    theme === 'light'
+                      ? 'bg-orange-50/80 border-orange-200 text-orange-700'
+                      : 'bg-[#111827]/90 border-orange-500/30 text-orange-400'
+                  }`}
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                  </span>
+                  <Shield className="w-3.5 h-3.5 text-orange-500" />
+                  <span>{landingContent.badgeText || 'CERTIFICAÇÃO · AUDITORIA · CONFORMIDADE'}</span>
+                </div>
+
+                {/* ISO Badges Pill Row as in reference image */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {['ISO 9001', 'ISO 14001', 'ISO 45001', 'ISO 31000'].map((iso) => (
+                    <div
+                      key={iso}
+                      className={`px-3.5 py-1 rounded-full text-xs font-bold tracking-wide border shadow-xs transition-all ${
+                        theme === 'light'
+                          ? 'bg-white border-slate-300 text-slate-700 hover:border-orange-500 hover:text-orange-600'
+                          : 'bg-slate-900 border-slate-700 text-slate-200 hover:border-orange-500 hover:text-orange-400'
+                      }`}
+                    >
+                      {iso}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Dominant Headline with Staggered Word-by-Word Blur Reveal */}
@@ -531,7 +548,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   theme === 'light' ? 'text-slate-600' : 'text-slate-300'
                 }`}
               >
-                Conectamos corporações globais, auditores líderes IRCA e fornecedores estratégicos com o mais elevado rigor técnico, rastreabilidade digital e integridade de conformidade.
+                A Nexus Veritas integra conhecimento técnico, auditorias, sistemas de gestão e tecnologia para ajudar organizações a fortalecer seus processos, gerenciar riscos, avaliar fornecedores e evoluir continuamente.
               </p>
 
               {/* Action Buttons with Sliding Sheen & Arrow Micro-interaction */}
