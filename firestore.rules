@@ -67,5 +67,15 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if true;
     }
+
+    // Processos Modulares (Avaliações e Diagnósticos Customizados)
+    match /modular_processes/{processId} {
+      allow read, write: if true;
+    }
+
+    // Checklists Normativos e Modelos de Avaliação com Versionamento
+    match /checklist_templates/{templateId} {
+      allow read, write: if true;
+    }
   }
 }

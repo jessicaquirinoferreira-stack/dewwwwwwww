@@ -128,8 +128,12 @@ export type AuditFindingSeverity = 'Conforme' | 'Oportunidade de Melhoria' | 'NC
 
 export interface AuditChecklistItem {
   id: string;
+  code?: string; // Cláusula / Identificador (ex: 4.1, 5.2.1)
   requirement: string;
   processOrArea: string;
+  guidance?: string; // Orientações ao auditor
+  expectedEvidence?: string; // Evidências esperadas
+  acceptanceCriteria?: string; // Critérios de aceitação
   conformity: AuditFindingSeverity;
   weight?: number; // Peso do requisito (padrão 1.0)
   probability?: number; // ISO 31000 Probabilidade (1 a 5)
@@ -140,6 +144,9 @@ export interface AuditChecklistItem {
   photoUrl?: string;
   actionPlanCreated?: boolean;
   actionPlanId?: string;
+  isActive?: boolean; // Para inativar/desabilitar item específico
+  isCustomAdded?: boolean; // Requisito personalizado adicionado pelo cliente/auditor
+  order?: number;
 }
 
 export interface AuditTechnicalApproval {
@@ -158,6 +165,9 @@ export interface Audit {
   clientAddress: string;
   auditType: AuditType;
   norm: string;
+  checklistTemplateId?: string; // Referência ao modelo de checklist utilizado
+  checklistRevision?: string; // Revisão interna do checklist (ex: Rev. 02 - 2026/10)
+  checklistNormEdition?: string; // Edição oficial da norma (ex: ABNT NBR ISO 9001:2015)
   scope: string;
   leadAuditor: string;
   auditTeam: string;
@@ -435,4 +445,156 @@ export interface Partner {
   order: number;
   isActive: boolean;
   createdAt: string;
+}
+
+// =========================================================================
+// MÓDULO: PROCESSO MODULAR (Construtor de Avaliações Personalizadas)
+// =========================================================================
+
+export type ModularProcessCategory =
+  | 'processo_produtivo'
+  | 'produto'
+  | 'fornecedor'
+  | 'processo_especial'
+  | 'inspecao_tecnica'
+  | 'diagnostico_gestao'
+  | 'financeiro'
+  | 'mercado'
+  | 'viabilidade_produto'
+  | 'maturidade'
+  | 'riscos_oportunidades'
+  | 'desempenho_operacional'
+  | 'checklist_personalizado'
+  | 'outro';
+
+export type ModularEvaluationMethod =
+  | 'conformity' // Conforme / Não Conforme
+  | 'three_levels' // Atende / Atende Parcialmente / Não Atende
+  | 'score_5' // Pontuação de 0 a 5
+  | 'percentage' // Escala percentual (0 a 100%)
+  | 'maturity_levels' // Níveis de Maturidade 1 a 5
+  | 'risk_levels' // Baixo / Médio / Alto / Crítico
+  | 'approval' // Aprovado / Reprovado / Ressalvas
+  | 'custom'; // Critérios personalizados
+
+export type ModularProcessStatus =
+  | 'Planejado'
+  | 'Em Andamento'
+  | 'Concluído'
+  | 'Homologado'
+  | 'Cancelado';
+
+export interface ModularCriterionAttachment {
+  name: string;
+  url: string;
+  size?: string;
+  type?: string;
+}
+
+export interface ModularProcessCriterion {
+  id: string;
+  code?: string;
+  title: string;
+  categoryOrPillar: string; // Ex: Pilar Técnico, Comercial, Operacional, etc.
+  description?: string;
+  weight: number; // Peso ponderado (1.0 a 5.0 ou percentual)
+  criticality?: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+  value: any; // Valor atribuído na avaliação
+  scorePercentage: number; // 0 - 100% ponderado
+  statusLabel: string; // Texto legível (ex: "Conforme", "Atende", "Nível 4")
+  evidenceNotes?: string;
+  attachments?: ModularCriterionAttachment[];
+  recommendations?: string;
+  actionPlanRequired?: boolean;
+  actionPlanDetails?: {
+    what: string;
+    who: string;
+    when: string;
+    how: string;
+  };
+}
+
+export interface ModularCalculationRule {
+  calculationType: 'weighted_average' | 'simple_sum' | 'percentage' | 'maturity_index' | 'go_no_go';
+  acceptanceThreshold: number; // Limite de aceitação (ex: 80% ou 3.5)
+  criticalItemOverride: boolean; // Reprovação automática se item crítico falhar
+  customClassificationBrackets?: {
+    min: number;
+    max: number;
+    label: string;
+    color: string;
+    description: string;
+  }[];
+}
+
+export interface ModularProcess {
+  id: string;
+  code: string; // Ex: PROC-MOD-2026-001
+  title: string; // Nome da análise
+  purpose: string; // Finalidade da análise
+  category: ModularProcessCategory;
+  clientOrUnit: string; // Empresa ou unidade avaliada
+  responsible: string; // Responsável
+  date: string;
+  status: ModularProcessStatus;
+  evaluationMethod: ModularEvaluationMethod;
+  customScaleOptions?: string[]; // Opções custom se evaluationMethod === 'custom'
+  calculationRules: ModularCalculationRule;
+  criteria: ModularProcessCriterion[];
+  overallScore: number; // 0 a 100 ou índice geral
+  classificationResult: string; // Ex: "Aprovado (92%)", "Maturidade Nível 4", "Viável"
+  strongPoints?: string[];
+  weakPoints?: string[];
+  recommendations?: string;
+  finalOpinion?: string;
+  approvedBy?: string;
+  isTemplate?: boolean;
+  templateName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// =========================================================================
+// GESTÃO DE CHECKLISTS NORMATIVOS, MODELOS E HISTÓRICO DE REVISÕES
+// =========================================================================
+
+export interface ChecklistTemplateItem {
+  id: string;
+  code?: string; // ex: '4.1', '5.1.2', etc.
+  requirement: string; // Título/Requisito normativo ou pergunta
+  processOrArea: string; // Área/Processo aplicável
+  guidance?: string; // Orientações ao auditor
+  expectedEvidence?: string; // Evidências esperadas
+  acceptanceCriteria?: string; // Critérios de aceitação
+  weight: number; // Peso ponderado (1.0 a 5.0)
+  criticality: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+  isActive: boolean; // Ativo ou inativado
+  order: number;
+}
+
+export interface ChecklistRevisionHistory {
+  revisionNumber: string; // Ex: 'Rev. 00', 'Rev. 01', 'Rev. 02'
+  date: string;
+  responsible: string;
+  reason: string; // Motivo da alteração / revisão
+  changesSummary: string; // Resumo das alterações
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  title: string; // Ex: 'Checklist Oficial ISO 9001:2015'
+  norm: string; // Ex: 'ISO 9001'
+  normEdition: string; // Ex: 'ABNT NBR ISO 9001:2015' (Edição oficial da norma)
+  revisionNumber: string; // Ex: 'Rev. 02' (Revisão interna do checklist)
+  type: 'padrao_nexus' | 'personalizado_empresa' | 'auditor_independente';
+  scope: string; // Escopo e aplicação
+  status: 'Vigente' | 'Em Revisão' | 'Obsoleto';
+  ownerId?: string;
+  ownerName?: string;
+  companyName?: string;
+  isSystemStandard: boolean; // Se é modelo oficial da plataforma Nexus Veritas
+  items: ChecklistTemplateItem[];
+  revisionHistory: ChecklistRevisionHistory[];
+  createdAt: string;
+  updatedAt: string;
 }

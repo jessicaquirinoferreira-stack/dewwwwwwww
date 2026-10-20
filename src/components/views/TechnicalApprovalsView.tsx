@@ -59,6 +59,7 @@ export const TechnicalApprovalsView: React.FC<TechnicalApprovalsViewProps> = ({ 
   const [activeTab, setActiveTab] = useState<TechnicalTab>('certificados');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItemForEval, setSelectedItemForEval] = useState<{ id: string; title: string; type: string; parecer: string } | null>(null);
+  const [selectedPreviewItem, setSelectedPreviewItem] = useState<{ id: string; title: string; subtitle: string; status: string; parecer: string } | null>(null);
   const [evaluationComment, setEvaluationComment] = useState('');
   const [successToast, setSuccessToast] = useState<string | null>(null);
 
@@ -234,10 +235,10 @@ export const TechnicalApprovalsView: React.FC<TechnicalApprovalsViewProps> = ({ 
 
                 <div className="flex items-center justify-end gap-2 pt-1">
                   <button
-                    onClick={() => triggerToast(`Abrindo pré-visualização oficial de ${item.title}`)}
+                    onClick={() => setSelectedPreviewItem(item)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5" />
+                    <Eye className="w-3.5 h-3.5 text-orange-400" />
                     Pré-visualizar
                   </button>
                   <button
@@ -447,6 +448,79 @@ export const TechnicalApprovalsView: React.FC<TechnicalApprovalsViewProps> = ({ 
                 >
                   <Check className="w-3.5 h-3.5" />
                   Aprovar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PRÉ-VISUALIZAÇÃO OFICIAL DO CERTIFICADO / DOCUMENTO */}
+      {selectedPreviewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl">
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-orange-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">Pré-visualização Oficial de Auditoria</h3>
+                  <p className="text-[10px] text-slate-400 font-mono">Nexus Veritas Certification • Registro Criptografado SHA-256</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedPreviewItem(null)}
+                className="text-slate-400 hover:text-white cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 text-xs">
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold text-orange-400 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/30">
+                    {selectedPreviewItem.title}
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+                    {selectedPreviewItem.status}
+                  </span>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">{selectedPreviewItem.subtitle}</h4>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Norma Técnica ISO 9001:2015 / IQF Fornecedores • Validação Internacional IAF MLA.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 font-mono text-slate-300">
+                  <span className="text-slate-500 block text-[10px] mb-0.5">Parecer Técnico Registrado:</span>
+                  {selectedPreviewItem.parecer}
+                </div>
+
+                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                  <span>Assinatura Digital: Bruno Alvarenga (IRCA)</span>
+                  <span className="text-emerald-400">SHA-256: 9F8E...3A21</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.print();
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4 text-orange-400" />
+                  Imprimir / PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPreviewItem(null)}
+                  className="px-5 py-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-xl text-xs font-bold shadow-md shadow-orange-500/20 cursor-pointer"
+                >
+                  Fechar Pré-visualização
                 </button>
               </div>
             </div>

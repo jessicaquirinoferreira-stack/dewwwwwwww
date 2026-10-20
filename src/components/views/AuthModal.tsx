@@ -12,6 +12,8 @@ import {
   Briefcase
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { getNexusBrandLogo } from '../../constants/branding';
 import { Role } from '../../types';
 
 interface AuthModalProps {
@@ -36,6 +38,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { login, loginWithGoogle, register } = useAuth();
+  const { theme } = useTheme();
 
   if (!isOpen) return null;
 
@@ -105,7 +108,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="flex flex-col items-center text-center mb-6">
           <div className="w-14 h-14 rounded-2xl bg-white border border-slate-300 flex items-center justify-center overflow-hidden shadow-lg shadow-orange-950/20 mb-3 p-1.5">
             <img
-              src="https://i.postimg.cc/zvWspM3H/Chat-GPT-Image-8-de-out-de-2026-18-07-55.png"
+              src={getNexusBrandLogo(theme)}
               alt="Nexus Veritas Logo"
               className="w-full h-full object-contain"
             />

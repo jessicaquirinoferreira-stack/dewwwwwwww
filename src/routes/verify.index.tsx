@@ -2,6 +2,7 @@ import React from 'react';
 import { PublicCertificateValidator } from '../components/common/PublicCertificateValidator';
 import { ShieldCheck, ArrowLeft, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { getNexusBrandLogo } from '../constants/branding';
 
 interface VerifyIndexRouteProps {
   initialNumber?: string;
@@ -76,7 +77,7 @@ export const VerifyIndexRoute: React.FC<VerifyIndexRouteProps> = ({
 
             <div className="flex items-center gap-2.5">
               <img
-                src="https://i.postimg.cc/zvWspM3H/Chat-GPT-Image-8-de-out-de-2026-18-07-55.png"
+                src={getNexusBrandLogo(theme)}
                 alt="Nexus Veritas Logo"
                 className="h-7 w-auto object-contain"
               />

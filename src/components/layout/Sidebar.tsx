@@ -22,12 +22,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { getNexusBrandLogo } from '../../constants/branding';
 
 export type NavigationTab =
   | 'painel'
   | 'fornecedores'
   | 'mapa-mundial'
   | 'auditorias'
+  | 'processo-modular'
   | 'agenda'
   | 'planos-de-acao'
   | 'indicadores'
@@ -71,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'fornecedores' as NavigationTab, label: 'Fornecedores', icon: Building2, roles: ['master', 'admin', 'auditor', 'empresa'] },
         { id: 'mapa-mundial' as NavigationTab, label: 'Mapa Mundial', icon: Globe2, roles: ['master', 'admin', 'auditor'] },
         { id: 'auditorias' as NavigationTab, label: 'Auditorias', icon: ClipboardCheck, roles: ['master', 'admin', 'auditor', 'empresa'] },
+        { id: 'processo-modular' as NavigationTab, label: 'Processo Modular', icon: Layers, roles: ['master', 'admin', 'auditor', 'empresa'] },
       ].filter((item) => item.roles.includes(userRole)),
     },
     {
@@ -112,25 +115,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Brand Logo Header */}
       <div
-        className={`p-5 flex items-center justify-between border-b transition-colors ${
+        className={`px-3.5 py-4 flex items-center justify-start border-b transition-colors ${
           theme === 'light' ? 'border-slate-200' : 'border-slate-800/80'
         }`}
       >
         <button
           onClick={onOpenLanding}
-          className="flex items-center gap-3 text-left group cursor-pointer"
+          className="flex items-center gap-2.5 text-left group cursor-pointer w-full"
           title="Ver Landing Page da Nexus Veritas"
         >
           {/* Official Logo with transparent background */}
-          <div className="w-12 h-12 rounded-xl bg-transparent flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden p-0.5">
+          <div className="w-10 h-10 rounded-xl bg-transparent flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden p-0.5">
             <img
-              src="https://i.postimg.cc/zvWspM3H/Chat-GPT-Image-8-de-out-de-2026-18-07-55.png"
+              src={getNexusBrandLogo(theme)}
               alt="Nexus Veritas Logo"
               className="w-full h-full object-contain drop-shadow"
             />
           </div>
 
-          <div>
+          <div className="min-w-0">
             <div
               className={`font-brand text-[13px] font-extrabold leading-none tracking-wider ${
                 theme === 'light' ? 'text-slate-900' : 'text-white'

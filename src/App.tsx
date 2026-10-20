@@ -24,6 +24,7 @@ import { MagazineView } from './components/views/MagazineView';
 import { TechnicalSupportView } from './components/views/TechnicalSupportView';
 import { TechnicalApprovalsView } from './components/views/TechnicalApprovalsView';
 import { SettingsProfileView } from './components/views/SettingsProfileView';
+import { ModularProcessView } from './components/views/ModularProcessView';
 import { AdminPanelModal } from './components/views/AdminPanelModal';
 import { VerifyIndexRoute } from './routes/verify.index';
 
@@ -77,6 +78,8 @@ function AppContent() {
         return { category: 'PRINCIPAL', title: 'Mapa Mundial de Fornecedores' };
       case 'auditorias':
         return { category: 'PRINCIPAL', title: 'Auditorias de Conformidade' };
+      case 'processo-modular':
+        return { category: 'PRINCIPAL', title: 'Processo Modular & Avaliações Customizadas' };
       case 'agenda':
         return { category: 'GESTÃO', title: 'Agenda de Auditorias' };
       case 'planos-de-acao':
@@ -195,6 +198,14 @@ function AppContent() {
             <AuditsView
               onOpenDocuments={() => setCurrentTab('documentos')}
               onOpenSuppliers={() => setCurrentTab('fornecedores')}
+              onOpenProcessoModular={() => setCurrentTab('processo-modular')}
+            />
+          )}
+
+          {currentTab === 'processo-modular' && (
+            <ModularProcessView
+              onOpenAuditTab={() => setCurrentTab('auditorias')}
+              onNavigateToTab={(tab) => setCurrentTab(tab as NavigationTab)}
             />
           )}
 

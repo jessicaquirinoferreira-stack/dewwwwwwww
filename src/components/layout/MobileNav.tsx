@@ -22,12 +22,14 @@ import {
   RotateCcw,
   LogOut,
   Sun,
-  Moon
+  Moon,
+  Layers
 } from 'lucide-react';
 import { NavigationTab } from './Sidebar';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
+import { getNexusBrandLogo } from '../../constants/branding';
 
 interface MobileNavProps {
   currentTab: NavigationTab;
@@ -133,7 +135,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-lg bg-transparent flex items-center justify-center overflow-hidden p-0.5">
                   <img
-                    src="https://i.postimg.cc/zvWspM3H/Chat-GPT-Image-8-de-out-de-2026-18-07-55.png"
+                    src={getNexusBrandLogo(theme)}
                     alt="Nexus Veritas Logo"
                     className="w-full h-full object-contain drop-shadow"
                     style={{
@@ -174,6 +176,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                 </p>
                 <div className="space-y-1">
                   {[
+                    { id: 'processo-modular' as NavigationTab, label: 'Processo Modular', icon: Layers },
                     { id: 'mapa-mundial' as NavigationTab, label: 'Mapa Mundial de Fornecedores', icon: Globe2 },
                     { id: 'planos-de-acao' as NavigationTab, label: 'Planos de Ação (CAPA)', icon: CheckSquare },
                     { id: 'indicadores' as NavigationTab, label: 'Indicadores de Desempenho', icon: BarChart3 },

@@ -31,7 +31,10 @@ import {
   TechnicalTicket,
   LandingContent,
   Partner,
-  AuditLogEntry
+  AuditLogEntry,
+  ModularProcess,
+  ChecklistTemplate,
+  ChecklistTemplateItem
 } from '../types';
 import {
   DEFAULT_LANDING_CONTENT,
@@ -41,7 +44,9 @@ import {
   INITIAL_DEMO_AUDITS,
   INITIAL_DEMO_ACTION_PLANS,
   INITIAL_DEMO_CERTIFICATES,
-  INITIAL_DEMO_DOCUMENTS
+  INITIAL_DEMO_DOCUMENTS,
+  DEFAULT_MODULAR_PROCESSES,
+  DEFAULT_CHECKLIST_TEMPLATES_COLLECTION
 } from '../data/initialData';
 import {
   collection,
@@ -85,6 +90,22 @@ interface DataContextType {
   deleteAudit: (id: string) => void;
   createActionPlanFromAuditNC: (auditId: string, item: AuditChecklistItem, responsible: string, deadline: string, priority?: 'Alta' | 'Média' | 'Baixa') => void;
   submitAuditTechnicalApproval: (auditId: string, approval: AuditTechnicalApproval) => void;
+
+  // 2.1. Processo Modular (Avaliações, Diagnósticos e Auditorias Personalizadas)
+  modularProcesses: ModularProcess[];
+  addModularProcess: (process: Omit<ModularProcess, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateModularProcess: (id: string, updated: Partial<ModularProcess>) => void;
+  deleteModularProcess: (id: string) => void;
+  duplicateModularProcess: (id: string) => void;
+  saveAsModularTemplate: (processId: string, templateName: string) => void;
+
+  // 2.2. Gestão de Checklists Normativos & Modelos de Avaliação com Versionamento
+  checklistTemplates: ChecklistTemplate[];
+  addChecklistTemplate: (template: Omit<ChecklistTemplate, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateChecklistTemplate: (id: string, updated: Partial<ChecklistTemplate>) => void;
+  deleteChecklistTemplate: (id: string) => void;
+  createNewChecklistRevision: (id: string, revisionData: { revisionNumber: string; reason: string; responsible: string; changesSummary: string; newItems?: ChecklistTemplateItem[] }) => void;
+  saveCustomChecklistFromAudit: (auditId: string, title: string, companyName: string) => string;
 
   // 3. Action Plans
   actionPlans: ActionPlan[];
@@ -192,6 +213,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const s = getStored('audits', INITIAL_DEMO_AUDITS);
     return s && s.length > 0 ? s : INITIAL_DEMO_AUDITS;
   });
+  const [modularProcesses, setModularProcesses] = useState<ModularProcess[]>(() => {
+    const s = getStored('modular_processes', DEFAULT_MODULAR_PROCESSES);
+    return s && s.length > 0 ? s : DEFAULT_MODULAR_PROCESSES;
+  });
+  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>(() => {
+    const s = getStored('checklist_templates', DEFAULT_CHECKLIST_TEMPLATES_COLLECTION);
+    return s && s.length > 0 ? s : DEFAULT_CHECKLIST_TEMPLATES_COLLECTION;
+  });
   const [actionPlans, setActionPlans] = useState<ActionPlan[]>(() => {
     const s = getStored('action_plans', INITIAL_DEMO_ACTION_PLANS);
     return s && s.length > 0 ? s : INITIAL_DEMO_ACTION_PLANS;
@@ -236,6 +265,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sync states to local storage
   useEffect(() => saveStored('suppliers', suppliers), [suppliers]);
   useEffect(() => saveStored('audits', audits), [audits]);
+  useEffect(() => saveStored('modular_processes', modularProcesses), [modularProcesses]);
+  useEffect(() => saveStored('checklist_templates', checklistTemplates), [checklistTemplates]);
   useEffect(() => saveStored('action_plans', actionPlans), [actionPlans]);
   useEffect(() => saveStored('indicators', indicators), [indicators]);
   useEffect(() => saveStored('certificates', certificates), [certificates]);
@@ -354,6 +385,52 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           },
           (err) => console.warn('Firestore onSnapshot audits note:', err)
+        )
+      );
+    } catch {}
+
+    // 3.1. Processos Modulares (Avaliações e Diagnósticos Customizados)
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'modular_processes'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: ModularProcess[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as ModularProcess));
+              setModularProcesses(list);
+            } else {
+              DEFAULT_MODULAR_PROCESSES.forEach(async (p) => {
+                try {
+                  await setDoc(doc(db, 'modular_processes', p.id), cleanForFirestore(p));
+                } catch {}
+              });
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot modular_processes note:', err)
+        )
+      );
+    } catch {}
+
+    // 3.2. Checklists Normativos & Modelos de Avaliação com Versionamento
+    try {
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'checklist_templates'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: ChecklistTemplate[] = [];
+              snapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as ChecklistTemplate));
+              setChecklistTemplates(list);
+            } else {
+              DEFAULT_CHECKLIST_TEMPLATES_COLLECTION.forEach(async (tmpl) => {
+                try {
+                  await setDoc(doc(db, 'checklist_templates', tmpl.id), cleanForFirestore(tmpl));
+                } catch {}
+              });
+            }
+          },
+          (err) => console.warn('Firestore onSnapshot checklist_templates note:', err)
         )
       );
     } catch {}
@@ -1073,6 +1150,312 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       targetName: approval.decision,
       details: `Parecer Técnico emitido: ${approval.decision}. Parecer: ${approval.comments}`,
     });
+  };
+
+  // Processo Modular CRUD with Full Firestore Persistence & Logic
+  const addModularProcess = async (processData: Omit<ModularProcess, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString();
+    const newProcess: ModularProcess = {
+      ...processData,
+      id: `proc-mod-${Date.now()}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setModularProcesses((prev) => [newProcess, ...prev]);
+
+    try {
+      await setDoc(doc(db, 'modular_processes', newProcess.id), cleanForFirestore(newProcess));
+    } catch (e) {
+      console.warn('Firestore addModularProcess notice:', e);
+    }
+
+    addAuditLog({
+      userEmail: 'auditor@nexusveritas.com',
+      userName: processData.responsible || 'Assinante / Auditor',
+      action: 'NOVO_PROCESSO_MODULAR',
+      module: 'PROCESSO_MODULAR',
+      targetId: newProcess.id,
+      targetName: newProcess.title,
+      details: `Novo Processo Modular "${newProcess.title}" (${newProcess.code}) criado. Categoria: ${newProcess.category}. Metodologia: ${newProcess.evaluationMethod}.`,
+    });
+  };
+
+  const updateModularProcess = async (id: string, updated: Partial<ModularProcess>) => {
+    const now = new Date().toISOString();
+    setModularProcesses((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          return {
+            ...p,
+            ...updated,
+            updatedAt: now,
+          };
+        }
+        return p;
+      })
+    );
+
+    try {
+      await updateDoc(doc(db, 'modular_processes', id), cleanForFirestore({
+        ...updated,
+        updatedAt: now,
+      }));
+    } catch (e) {
+      console.warn('Firestore updateModularProcess notice:', e);
+    }
+  };
+
+  const deleteModularProcess = async (id: string) => {
+    const processToDelete = modularProcesses.find((p) => p.id === id);
+    setModularProcesses((prev) => prev.filter((p) => p.id !== id));
+    try {
+      await deleteDoc(doc(db, 'modular_processes', id));
+    } catch (e) {
+      console.warn('Firestore deleteModularProcess notice:', e);
+    }
+
+    if (processToDelete) {
+      addAuditLog({
+        userEmail: 'sistema@nexusveritas.com',
+        userName: 'Gestão de Processos',
+        action: 'EXCLUSAO_PROCESSO_MODULAR',
+        module: 'PROCESSO_MODULAR',
+        targetId: id,
+        targetName: processToDelete.title,
+        details: `Processo Modular ${processToDelete.code} excluído do sistema.`,
+      });
+    }
+  };
+
+  const duplicateModularProcess = async (id: string) => {
+    const base = modularProcesses.find((p) => p.id === id);
+    if (!base) return;
+
+    const now = new Date().toISOString();
+    const newProcess: ModularProcess = {
+      ...base,
+      id: `proc-mod-${Date.now()}`,
+      code: `PROC-MOD-2026-${Math.floor(Math.random() * 899 + 100)}`,
+      title: `${base.title} (Cópia)`,
+      status: 'Planejado',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setModularProcesses((prev) => [newProcess, ...prev]);
+    try {
+      await setDoc(doc(db, 'modular_processes', newProcess.id), cleanForFirestore(newProcess));
+    } catch (e) {
+      console.warn('Firestore duplicateModularProcess notice:', e);
+    }
+  };
+
+  const saveAsModularTemplate = async (processId: string, templateName: string) => {
+    const base = modularProcesses.find((p) => p.id === processId);
+    if (!base) return;
+
+    const now = new Date().toISOString();
+    const templateProcess: ModularProcess = {
+      ...base,
+      id: `tmpl-${Date.now()}`,
+      code: `TMPL-${Math.floor(Math.random() * 899 + 100)}`,
+      title: templateName || `Modelo: ${base.title}`,
+      isTemplate: true,
+      templateName: templateName || base.title,
+      status: 'Planejado',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setModularProcesses((prev) => [templateProcess, ...prev]);
+    try {
+      await setDoc(doc(db, 'modular_processes', templateProcess.id), cleanForFirestore(templateProcess));
+    } catch (e) {
+      console.warn('Firestore saveAsModularTemplate notice:', e);
+    }
+  };
+
+  // Checklists Normativos & Modelos de Avaliação CRUD with Versioning & Integrity
+  const addChecklistTemplate = async (templateData: Omit<ChecklistTemplate, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date().toISOString();
+    const newTemplate: ChecklistTemplate = {
+      ...templateData,
+      id: `tmpl-${Date.now()}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setChecklistTemplates((prev) => [newTemplate, ...prev]);
+
+    try {
+      await setDoc(doc(db, 'checklist_templates', newTemplate.id), cleanForFirestore(newTemplate));
+    } catch (e) {
+      console.warn('Firestore addChecklistTemplate notice:', e);
+    }
+
+    addAuditLog({
+      userEmail: 'sistema@nexusveritas.com',
+      userName: templateData.ownerName || 'Administrador',
+      action: 'NOVO_CHECKLIST_MODELO',
+      module: 'CHECKLISTS_SGQ',
+      targetId: newTemplate.id,
+      targetName: newTemplate.title,
+      details: `Novo checklist ${newTemplate.title} (${newTemplate.norm} - ${newTemplate.revisionNumber}) cadastrado.`,
+    });
+  };
+
+  const updateChecklistTemplate = async (id: string, updated: Partial<ChecklistTemplate>) => {
+    const now = new Date().toISOString();
+    setChecklistTemplates((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updated, updatedAt: now } : t))
+    );
+
+    try {
+      await updateDoc(doc(db, 'checklist_templates', id), cleanForFirestore({
+        ...updated,
+        updatedAt: now,
+      }));
+    } catch (e) {
+      console.warn('Firestore updateChecklistTemplate notice:', e);
+    }
+  };
+
+  const deleteChecklistTemplate = async (id: string) => {
+    const target = checklistTemplates.find((t) => t.id === id);
+    setChecklistTemplates((prev) => prev.filter((t) => t.id !== id));
+
+    try {
+      await deleteDoc(doc(db, 'checklist_templates', id));
+    } catch (e) {
+      console.warn('Firestore deleteChecklistTemplate notice:', e);
+    }
+
+    if (target) {
+      addAuditLog({
+        userEmail: 'sistema@nexusveritas.com',
+        userName: 'Gestão de Modelos',
+        action: 'EXCLUSAO_CHECKLIST_MODELO',
+        module: 'CHECKLISTS_SGQ',
+        targetId: id,
+        targetName: target.title,
+        details: `Modelo de checklist ${target.title} excluído do sistema.`,
+      });
+    }
+  };
+
+  const createNewChecklistRevision = async (
+    id: string,
+    revisionData: {
+      revisionNumber: string;
+      reason: string;
+      responsible: string;
+      changesSummary: string;
+      newItems?: ChecklistTemplateItem[];
+    }
+  ) => {
+    const target = checklistTemplates.find((t) => t.id === id);
+    if (!target) return;
+
+    const now = new Date().toISOString();
+    const today = now.split('T')[0];
+
+    const newHistoryEntry = {
+      revisionNumber: revisionData.revisionNumber,
+      date: today,
+      responsible: revisionData.responsible,
+      reason: revisionData.reason,
+      changesSummary: revisionData.changesSummary,
+    };
+
+    const updatedTemplate: ChecklistTemplate = {
+      ...target,
+      revisionNumber: revisionData.revisionNumber,
+      items: revisionData.newItems || target.items,
+      revisionHistory: [newHistoryEntry, ...(target.revisionHistory || [])],
+      updatedAt: now,
+    };
+
+    setChecklistTemplates((prev) =>
+      prev.map((t) => (t.id === id ? updatedTemplate : t))
+    );
+
+    try {
+      await setDoc(doc(db, 'checklist_templates', id), cleanForFirestore(updatedTemplate));
+    } catch (e) {
+      console.warn('Firestore createNewChecklistRevision notice:', e);
+    }
+
+    addAuditLog({
+      userEmail: 'qualidade@nexusveritas.com',
+      userName: revisionData.responsible,
+      action: 'REVISAO_CHECKLIST',
+      module: 'CHECKLISTS_SGQ',
+      targetId: id,
+      targetName: `${target.title} (${revisionData.revisionNumber})`,
+      details: `Nova revisão emitida para ${target.title}: ${revisionData.revisionNumber}. Motivo: ${revisionData.reason}`,
+    });
+  };
+
+  const saveCustomChecklistFromAudit = (auditId: string, title: string, companyName: string): string => {
+    const audit = audits.find((a) => a.id === auditId);
+    if (!audit || !audit.checklistItems) return '';
+
+    const now = new Date().toISOString();
+    const newItems: ChecklistTemplateItem[] = audit.checklistItems.map((chk, idx) => ({
+      id: `it-${Date.now()}-${idx}`,
+      code: chk.code || `${idx + 1}`,
+      requirement: chk.requirement,
+      processOrArea: chk.processOrArea,
+      guidance: chk.guidance || 'Orientações personalizadas da auditoria.',
+      expectedEvidence: chk.expectedEvidence || chk.evidence || 'Evidências e registros operacionais.',
+      acceptanceCriteria: chk.acceptanceCriteria || 'Atendimento aos requisitos contratuais e técnicos.',
+      weight: chk.weight || 1.0,
+      criticality: chk.riskLevel === 'Crítico' ? 'Crítica' : 'Alta',
+      isActive: chk.isActive !== false,
+      order: idx + 1,
+    }));
+
+    const newTemplate: ChecklistTemplate = {
+      id: `tmpl-custom-${Date.now()}`,
+      title: title || `Checklist Personalizado ${audit.norm} - ${companyName || audit.clientName}`,
+      norm: audit.norm,
+      normEdition: audit.checklistNormEdition || `${audit.norm}:2015`,
+      revisionNumber: 'Rev. 01',
+      type: 'personalizado_empresa',
+      scope: `Checklist customizado derivado da auditoria ${audit.code} (${audit.clientName})`,
+      status: 'Vigente',
+      isSystemStandard: false,
+      ownerName: audit.leadAuditor || 'Auditor / Gestor',
+      companyName: companyName || audit.clientName,
+      items: newItems,
+      revisionHistory: [
+        {
+          revisionNumber: 'Rev. 01',
+          date: now.split('T')[0],
+          responsible: audit.leadAuditor || 'Auditor / Gestor',
+          reason: 'Criação a partir de customizações realizadas durante a auditoria.',
+          changesSummary: `Salvo a partir da auditoria ${audit.code} com ${newItems.length} requisitos.`,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setChecklistTemplates((prev) => [newTemplate, ...prev]);
+    try {
+      setDoc(doc(db, 'checklist_templates', newTemplate.id), cleanForFirestore(newTemplate));
+    } catch {}
+
+    addAuditLog({
+      userEmail: 'auditor@nexusveritas.com',
+      userName: audit.leadAuditor || 'Auditor',
+      action: 'SALVAR_CHECKLIST_CUSTOM',
+      module: 'CHECKLISTS_SGQ',
+      targetId: newTemplate.id,
+      targetName: newTemplate.title,
+      details: `Checklist personalizado salvo da auditoria ${audit.code}.`,
+    });
+
+    return newTemplate.id;
   };
 
   // Action Plans CRUD with Full Firestore Persistence
@@ -2008,6 +2391,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteAudit,
         createActionPlanFromAuditNC,
         submitAuditTechnicalApproval,
+
+        modularProcesses,
+        addModularProcess,
+        updateModularProcess,
+        deleteModularProcess,
+        duplicateModularProcess,
+        saveAsModularTemplate,
+
+        checklistTemplates,
+        addChecklistTemplate,
+        updateChecklistTemplate,
+        deleteChecklistTemplate,
+        createNewChecklistRevision,
+        saveCustomChecklistFromAudit,
 
         actionPlans,
         addActionPlan,

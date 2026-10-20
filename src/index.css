@@ -388,9 +388,9 @@ html.light body {
 }
 
 /* 1. Logotipo e marca Nexus Veritas com máxima nitidez no tema claro */
-html.light img[alt*="Logo"],
-html.light img[alt*="Nexus Veritas"] {
-  filter: drop-shadow(0 2px 6px rgba(15, 23, 42, 0.16)) contrast(1.1) !important;
+html.light img[alt*="Nexus Veritas Logo Oficial"],
+html.light img[alt*="Nexus Veritas Logo"] {
+  filter: none !important;
 }
 
 html.light .font-brand {

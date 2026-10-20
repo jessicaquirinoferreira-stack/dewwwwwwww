@@ -26,12 +26,15 @@ import {
   Zap,
   Sun,
   Moon,
-  TrendingUp
+  TrendingUp,
+  Menu
 } from 'lucide-react';
 import { STANDARD_NORMS } from '../../data/initialData';
 import { useData } from '../../context/DataContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Partner } from '../../types';
+import { NexusHero3D } from '../common/NexusHero3D';
+import { getNexusBrandLogo } from '../../constants/branding';
 
 interface LandingPageProps {
   onOpenAuth: (mode: 'login' | 'register') => void;
@@ -76,6 +79,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   // Scroll state for sticky header height transition and orange progress bar
   const [scrollProgress, setScrollProgress] = useState<number>(0);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -227,21 +231,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             : 'bg-[#0A0E17]/85 border-white/[0.08] shadow-black/40'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-4">
-          {/* Brand Logo & Wordmark - Respecting Transparent Official Logo Background */}
+        <div className="w-full px-4 sm:px-6 md:px-8 lg:px-10 xl:px-14 h-full flex items-center justify-between gap-4">
+          {/* Brand Logo & Wordmark - Anchored to the far left, away from the menu */}
           <a
             href="/"
-            className="flex items-center gap-3.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded-lg min-w-0"
+            className="flex items-center gap-3 sm:gap-3.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded-lg shrink-0 mr-auto lg:mr-8 xl:mr-14"
           >
-            <div className="relative flex items-center justify-center overflow-visible">
+            <div className="relative flex items-center justify-center overflow-visible shrink-0">
               <img
-                src="https://i.postimg.cc/zvWspM3H/Chat-GPT-Image-8-de-out-de-2026-18-07-55.png"
+                src={getNexusBrandLogo(theme)}
                 alt="Nexus Veritas Logo Oficial"
                 className="h-9 sm:h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
                 style={{ filter: theme === 'light' ? 'none' : 'drop-shadow(0 0 10px rgba(249,115,22,0.25))' }}
               />
             </div>
-            <div className="min-w-0">
+            <div className="shrink-0">
               <span
                 className={`font-brand text-xs sm:text-base font-extrabold tracking-wider block leading-none transition-colors ${
                   theme === 'light' ? 'text-slate-900 group-hover:text-orange-600' : 'text-white group-hover:text-orange-400'
@@ -257,7 +261,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           {/* Clean Navigation Links with Subtle Underline & Hover Colors */}
           <nav
-            className={`hidden xl:flex items-center gap-5 2xl:gap-7 text-xs font-medium ${
+            className={`hidden xl:flex items-center gap-4 2xl:gap-6 text-xs font-medium shrink-0 ${
               theme === 'light' ? 'text-slate-600' : 'text-slate-300'
             }`}
           >
@@ -359,8 +363,97 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span>Começar agora</span>
               <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />
             </button>
+
+            {/* Mobile / Tablet Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className={`xl:hidden p-2 rounded-xl border transition-colors cursor-pointer ${
+                theme === 'light'
+                  ? 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                  : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+              title="Menu de Navegação"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile / Tablet Dropdown Menu */}
+        {isMobileMenuOpen && (
+          <div
+            className={`xl:hidden border-b px-4 py-4 space-y-2 backdrop-blur-xl animate-in slide-in-from-top-2 duration-200 ${
+              theme === 'light' ? 'bg-white/95 border-slate-200 shadow-lg' : 'bg-[#0A0E17]/95 border-slate-800 shadow-2xl'
+            }`}
+          >
+            <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
+              <a
+                href="#recursos"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2.5 rounded-lg hover:bg-orange-500/10 hover:text-orange-500 transition-colors"
+              >
+                Recursos
+              </a>
+              <a
+                href="#parceiros"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2.5 rounded-lg hover:bg-orange-500/10 hover:text-orange-500 transition-colors"
+              >
+                Rede & Agenda
+              </a>
+              <a
+                href="#normas"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2.5 rounded-lg hover:bg-orange-500/10 hover:text-orange-500 transition-colors"
+              >
+                Auditorias
+              </a>
+              <a
+                href="#capacidades"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2.5 rounded-lg hover:bg-orange-500/10 hover:text-orange-500 transition-colors"
+              >
+                Como funciona
+              </a>
+              <a
+                href="#faq"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2.5 rounded-lg hover:bg-orange-500/10 hover:text-orange-500 transition-colors"
+              >
+                FAQ
+              </a>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  window.history.pushState({}, '', '/verify');
+                  window.location.reload();
+                }}
+                className="p-2.5 rounded-lg text-left text-orange-500 hover:bg-orange-500/10 font-bold transition-colors flex items-center gap-1.5"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Validar Certificado</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onEnterPlatform();
+                }}
+                className="p-2.5 rounded-lg text-left text-orange-500 hover:bg-orange-500/10 font-bold transition-colors"
+              >
+                Academy
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onEnterPlatform();
+                }}
+                className="p-2.5 rounded-lg text-left text-orange-500 hover:bg-orange-500/10 font-bold transition-colors"
+              >
+                Revista
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* 3. Hero Section with Animated Mesh Gradient, Moving Dot Grid, Word Reveal, 3D Certificate Card & Stats */}
@@ -371,17 +464,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             : 'bg-mesh-gradient bg-gradient-to-b from-[#0A0E17] via-[#0D1322] to-[#0B0F1A]'
         }`}
       >
-        {/* Subtle Warm Mesh Glows */}
-        <div className="absolute right-0 top-1/4 w-[650px] h-[650px] bg-gradient-to-tl from-orange-600/15 via-amber-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -left-20 top-10 w-[450px] h-[450px] bg-blue-900/15 rounded-full blur-3xl pointer-events-none" />
+        {/* Interactive 3D WebGL Background - Nexus Quality Core & Gyroscope Orbitals */}
+        <NexusHero3D />
+
+        {/* Subtle Warm Mesh Glows (Softened for greater transparency) */}
+        <div className="absolute right-0 top-1/4 w-[650px] h-[650px] bg-gradient-to-tl from-orange-600/8 via-amber-600/4 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -left-20 top-10 w-[450px] h-[450px] bg-blue-900/8 rounded-full blur-3xl pointer-events-none" />
 
         {/* Subtle Animated Drifting Dot Grid Pattern */}
-        <div className={`absolute inset-0 pointer-events-none ${theme === 'light' ? 'opacity-20' : 'opacity-25'}`}>
+        <div className={`absolute inset-0 pointer-events-none ${theme === 'light' ? 'opacity-10' : 'opacity-12'}`}>
           <svg className="w-full h-full animate-grid-drift" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="moving-dots" width="48" height="48" patternUnits="userSpaceOnUse">
-                <circle cx="2" cy="2" r="1.2" fill="#F97316" fillOpacity={theme === 'light' ? '0.4' : '0.3'} />
-                <circle cx="26" cy="26" r="1.4" fill="#F59E0B" fillOpacity={theme === 'light' ? '0.35' : '0.25'} />
+                <circle cx="2" cy="2" r="1" fill="#F97316" fillOpacity={theme === 'light' ? '0.25' : '0.18'} />
+                <circle cx="26" cy="26" r="1.1" fill="#F59E0B" fillOpacity={theme === 'light' ? '0.2' : '0.15'} />
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#moving-dots)" />
@@ -1302,7 +1398,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-white/[0.06]">
             <div className="flex items-center gap-3.5">
               <img
-                src="https://i.postimg.cc/zvWspM3H/Chat-GPT-Image-8-de-out-de-2026-18-07-55.png"
+                src={getNexusBrandLogo(theme)}
                 alt="Nexus Veritas Logo"
                 className="h-9 w-auto object-contain"
               />
